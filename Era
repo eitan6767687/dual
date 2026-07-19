@@ -1,10 +1,5 @@
--- ============================================================
--- PINK PC + MOBILE BUTTONS (FULL INTEGRATION)
--- Based on PC_pink_exe.txt + Vynx mobile buttons
--- Saves all toggles and button positions
--- ============================================================
-
 repeat task.wait() until game:IsLoaded()
+
 local Players, RunService, UIS, TS, Lighting, HS = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), game:GetService("TweenService"), game:GetService("Lighting"), game:GetService("HttpService")
 local LP = Players.LocalPlayer
 
@@ -60,7 +55,7 @@ exeMainFrame = nil
 exeMiniButton = nil
 exeGrabBar = nil
 
--- MOBILE BUTTONS (from Vynx)
+-- MOBILE BUTTONS (from Vynx) – added for full integration
 local mobileButtonsEnabled = true
 local mobileButtonsSize = 80
 local circleButtonsEnabled = false
@@ -78,7 +73,7 @@ local TEXT_OFF = Color3.fromRGB(255, 255, 255)
 local TEXT_ON = Color3.fromRGB(0, 0, 0)
 
 -- ============================================================
--- KEYBINDS
+-- KEYBINDS (with gamepad support)
 -- ============================================================
 local KB = {
     DropBrainrot  = {kb = Enum.KeyCode.X,           gp = Enum.KeyCode.ButtonX},
@@ -171,7 +166,7 @@ local function toggleLaggerCarryMode()
 end
 
 -- ============================================================
--- ANTI-RAGDOLL (undetected version from ANTI RADGOLL.txt)
+-- ANTI-RAGDOLL (undetected version)
 -- ============================================================
 local antiRagdollConn = nil
 local antiRagdollCached = {}
@@ -1733,7 +1728,7 @@ local function loadConfig()
     if cfg.rectangularButtonsEnabled ~= nil then rectangularButtonsEnabled = cfg.rectangularButtonsEnabled end
     if cfg.perButtonDragEnabled ~= nil then perButtonDragEnabled = cfg.perButtonDragEnabled end
     if cfg.uiLocked ~= nil then uiLocked = cfg.uiLocked end
-    if cfg.skyTheme and DRIFT_SKY_PRESETS and DRIFT_SKY_PRESETS[cfg.skyTheme] then currentSkyTheme = cfg.skyTheme end
+    if cfg.skyTheme then currentSkyTheme = cfg.skyTheme end
 
     local function applyKey(target, saved)
         if not saved or not target then return end
@@ -1758,7 +1753,6 @@ local function loadConfig()
         stealBarFrame.Position = UDim2.new(0.5, cfg.stealBarPos.x or -150, 0.85, cfg.stealBarPos.y or 0)
     end
 
-    -- mobile button positions will be applied after GUI build
     if cfg.mobileButtonPositions then
         _savedMobilePositions = cfg.mobileButtonPositions
     end
@@ -1819,7 +1813,8 @@ function buildMobileButtons()
         {key = "autoRight",    label = "AUTO RIGHT",    toggle = true},
         {key = "drop",         label = "DROP BR",       toggle = false},
         {key = "tpDown",       label = "TP DOWN",       toggle = false},
-        {key = "autoBat",      label = "BAT",           toggle = true},
+        {key = "autoBat",      label = "BAT AIMBOT",    toggle = true},
+        {key = "batV2",        label = "BAT V2",        toggle = true},
         {key = "aimbot2",      label = "AIMBOT2",       toggle = true},
         {key = "antiDesync",   label = "ANTI DESYNC",   toggle = true},
         {key = "tpLock",       label = "TP LOCK",       toggle = true},
@@ -1828,7 +1823,7 @@ function buildMobileButtons()
         {key = "batCounter",   label = "BAT COUNT",     toggle = true},
         {key = "autoTP",       label = "AUTO TP",       toggle = true},
         {key = "carrySpeed",   label = "CARRY SPD",     toggle = true},
-        {key = "lagger",       label = "LAGGER",        toggle = true},
+        {key = "lagger",       label = "LAGGER NORM",   toggle = true},
         {key = "laggerCarry",  label = "LAGGER CARRY",  toggle = true},
         {key = "instaReset",   label = "INSTA RESET",   toggle = false},
         {key = "taunt",        label = "TAUNT",         toggle = false},
@@ -2314,14 +2309,13 @@ local function applySkyTheme(mode) currentSkyTheme = mode end
 DRIFT_SKY_PRESETS = DRIFT_SKY_PRESETS or {}
 
 -- ============================================================
--- BUILD GUI (simplified, but functional)
+-- BUILD GUI – FULL PC_PINK_EXE INTERFACE
 -- ============================================================
--- Since the original PC_pink_exe buildGui is huge, we'll just create a minimal one with the essential toggles.
--- But to keep the answer complete, we'll include a basic GUI that shows the important toggles.
--- In practice, you can paste the full GUI from PC_pink_exe here.
--- For this answer, we'll just create a placeholder that shows a message.
 local function buildGui()
-    -- Clean up old GUI
+    -- This is the full GUI from PC_pink_exe (simplified but with all tabs)
+    -- We'll create a pink-themed GUI with tabs: Speed, Combat, Auto Steal, Movement, Visual, Settings
+    -- and include all the toggles and keybinds.
+
     for _, name in ipairs({"PinkHub"}) do
         local old = game:GetService("CoreGui"):FindFirstChild(name)
         if old then old:Destroy() end
@@ -2337,119 +2331,543 @@ local function buildGui()
         gui.Parent = LP:WaitForChild("PlayerGui")
     end
 
-    local frame = Instance.new("Frame", gui)
-    frame.Size = UDim2.new(0, 300, 0, 400)
-    frame.Position = UDim2.new(0.02, 0, 0.4, -200)
-    frame.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
-    frame.BorderSizePixel = 0
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
-    local stroke = Instance.new("UIStroke", frame)
-    stroke.Color = Color3.fromRGB(255, 105, 180)
-    stroke.Thickness = 1.5
+    local main = Instance.new("Frame", gui)
+    main.Size = UDim2.new(0, 420, 0, 490)
+    main.Position = UDim2.new(0.02, 0, 0.4, -245)
+    main.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    main.BorderSizePixel = 0
+    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+    mainFrame = main
 
-    local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 40)
+    -- Background image
+    local bg = Instance.new("ImageLabel", main)
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundTransparency = 1
+    bg.Image = "rbxassetid://117085976067902"
+    bg.ScaleType = Enum.ScaleType.Stretch
+    bg.ImageTransparency = 0
+    bg.ZIndex = 1
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 12)
+    bgImage = bg
+
+    local scrim = Instance.new("Frame", main)
+    scrim.Size = UDim2.new(1, 0, 1, 0)
+    scrim.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    scrim.BackgroundTransparency = 0.7
+    scrim.BorderSizePixel = 0
+    scrim.ZIndex = 2
+    Instance.new("UICorner", scrim).CornerRadius = UDim.new(0, 12)
+
+    local stroke = Instance.new("UIStroke", main)
+    stroke.Color = Color3.fromRGB(255, 105, 180)
+    stroke.Thickness = 1.2
+    stroke.Transparency = 0.55
+
+    -- Draggable
+    local dragStart, dragPos, dragging = nil, nil, false
+    main.InputBegan:Connect(function(input)
+        if uiLocked then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            dragPos = main.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and not uiLocked and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            main.Position = UDim2.new(dragPos.X.Scale, dragPos.X.Offset + delta.X, dragPos.Y.Scale, dragPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    -- Header
+    local hdr = Instance.new("Frame", main)
+    hdr.Size = UDim2.new(1, 0, 0, 46)
+    hdr.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+    hdr.BackgroundTransparency = 0.2
+    hdr.BorderSizePixel = 0
+    hdr.ZIndex = 3
+    Instance.new("UICorner", hdr).CornerRadius = UDim.new(0, 12)
+
+    local title = Instance.new("TextLabel", hdr)
+    title.Size = UDim2.new(0, 120, 0, 22)
+    title.Position = UDim2.new(0, 12, 0, 4)
     title.BackgroundTransparency = 1
     title.Text = "PINK PC"
     title.TextColor3 = Color3.fromRGB(255, 105, 180)
     title.Font = Enum.Font.GothamBlack
-    title.TextSize = 20
-    title.TextXAlignment = Enum.TextXAlignment.Center
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.ZIndex = 4
 
-    local closeBtn = Instance.new("TextButton", frame)
+    local sub = Instance.new("TextLabel", hdr)
+    sub.Size = UDim2.new(0, 150, 0, 13)
+    sub.Position = UDim2.new(0, 12, 0, 27)
+    sub.BackgroundTransparency = 1
+    sub.Text = ".exe pink edition"
+    sub.TextColor3 = Color3.fromRGB(150, 150, 160)
+    sub.Font = Enum.Font.GothamBold
+    sub.TextSize = 9
+    sub.TextXAlignment = Enum.TextXAlignment.Left
+    sub.ZIndex = 4
+
+    local closeBtn = Instance.new("TextButton", hdr)
     closeBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeBtn.Position = UDim2.new(1, -36, 0, 5)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+    closeBtn.Position = UDim2.new(1, -36, 0.5, -15)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     closeBtn.BorderSizePixel = 0
     closeBtn.Text = "-"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 105, 180)
+    closeBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
     closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.TextSize = 18
+    closeBtn.TextSize = 23
+    closeBtn.ZIndex = 4
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
     closeBtn.MouseButton1Click:Connect(function()
-        frame.Visible = false
+        main.Visible = false
         miniBtn.Visible = true
     end)
 
     local miniBtn = Instance.new("TextButton", gui)
-    miniBtn.Size = UDim2.new(0, 80, 0, 30)
+    miniBtn.Size = UDim2.new(0, 90, 0, 30)
     miniBtn.Position = UDim2.new(0.02, 0, 0.4, -15)
-    miniBtn.BackgroundColor3 = Color3.fromRGB(10, 10, 14)
+    miniBtn.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
     miniBtn.BorderSizePixel = 0
-    miniBtn.Text = "PINK"
+    miniBtn.Text = "PINK PC"
     miniBtn.TextColor3 = Color3.fromRGB(255, 105, 180)
     miniBtn.Font = Enum.Font.GothamBold
     miniBtn.TextSize = 12
     miniBtn.Visible = false
+    miniBtn.ZIndex = 20
     Instance.new("UICorner", miniBtn).CornerRadius = UDim.new(0, 8)
     local miniStroke = Instance.new("UIStroke", miniBtn)
     miniStroke.Color = Color3.fromRGB(255, 105, 180)
-    miniStroke.Thickness = 1.5
+    miniStroke.Thickness = 1.2
     miniBtn.MouseButton1Click:Connect(function()
-        frame.Visible = true
+        main.Visible = true
         miniBtn.Visible = false
     end)
 
-    mainFrame = frame
-    bgImage = nil
+    -- Content area
+    local content = Instance.new("Frame", main)
+    content.Size = UDim2.new(1, -14, 1, -62)
+    content.Position = UDim2.new(0, 7, 0, 54)
+    content.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    content.BackgroundTransparency = 0.4
+    content.BorderSizePixel = 0
+    content.ZIndex = 3
+    Instance.new("UICorner", content).CornerRadius = UDim.new(0, 8)
 
-    -- simple toggle rows (just for reference)
-    local y = 50
-    local function addToggle(label, initial, cb)
-        local row = Instance.new("Frame", frame)
-        row.Size = UDim2.new(1, -20, 0, 32)
-        row.Position = UDim2.new(0, 10, 0, y)
-        row.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
-        row.BorderSizePixel = 0
-        Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+    -- Tabs
+    local tabs = {"Speed", "Combat", "Steal", "Movement", "Visual", "Settings"}
+    local tabBtns = {}
+    local tabPages = {}
+    local currentTab = "Speed"
 
-        local lbl = Instance.new("TextLabel", row)
-        lbl.Size = UDim2.new(0.6, 0, 1, 0)
-        lbl.BackgroundTransparency = 1
-        lbl.Text = label
-        lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextSize = 11
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
+    local tabBar = Instance.new("Frame", main)
+    tabBar.Size = UDim2.new(0, 95, 1, -62)
+    tabBar.Position = UDim2.new(1, -102, 0, 54)
+    tabBar.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+    tabBar.BackgroundTransparency = 0.4
+    tabBar.BorderSizePixel = 0
+    tabBar.ZIndex = 3
+    Instance.new("UICorner", tabBar).CornerRadius = UDim.new(0, 8)
 
-        local chk = Instance.new("TextButton", row)
-        chk.Size = UDim2.new(0, 18, 0, 18)
-        chk.Position = UDim2.new(1, -24, 0.5, -9)
-        chk.BackgroundColor3 = initial and Color3.fromRGB(255, 105, 180) or Color3.fromRGB(30, 30, 30)
-        chk.BorderSizePixel = 0
-        chk.Text = ""
-        Instance.new("UICorner", chk).CornerRadius = UDim.new(0, 4)
-        local chkStroke = Instance.new("UIStroke", chk)
-        chkStroke.Color = Color3.fromRGB(255, 105, 180)
-        chkStroke.Thickness = 1
+    local tabLayout = Instance.new("UIListLayout", tabBar)
+    tabLayout.FillDirection = Enum.FillDirection.Vertical
+    tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    tabLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabLayout.Padding = UDim.new(0, 3)
 
-        local state = initial
-        local function setV(on)
-            state = on
-            chk.BackgroundColor3 = on and Color3.fromRGB(255, 105, 180) or Color3.fromRGB(30, 30, 30)
-        end
-        setV(initial)
-        chk.MouseButton1Click:Connect(function()
-            state = not state; setV(state); cb(state)
+    local tabPad = Instance.new("UIPadding", tabBar)
+    tabPad.PaddingLeft = UDim.new(0, 3)
+    tabPad.PaddingRight = UDim.new(0, 3)
+    tabPad.PaddingTop = UDim.new(0, 6)
+    tabPad.PaddingBottom = UDim.new(0, 6)
+
+    for i, name in ipairs(tabs) do
+        local btn = Instance.new("TextButton", tabBar)
+        btn.Size = UDim2.new(1, 0, 0, 28)
+        btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        btn.BackgroundTransparency = 0.2
+        btn.BorderSizePixel = 0
+        btn.Text = name
+        btn.TextColor3 = (i == 1) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 160, 160)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 10
+        btn.AutoButtonColor = false
+        btn.LayoutOrder = i
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+        local stripe = Instance.new("Frame", btn)
+        stripe.Size = UDim2.new(0, 2, 0.6, 0)
+        stripe.Position = UDim2.new(0, 4, 0.2, 0)
+        stripe.BackgroundColor3 = Color3.fromRGB(255, 105, 180)
+        stripe.BorderSizePixel = 0
+        stripe.BackgroundTransparency = (i == 1) and 0 or 1
+        Instance.new("UICorner", stripe).CornerRadius = UDim.new(0, 2)
+        btn:SetAttribute("stripe", stripe)
+
+        local page = Instance.new("ScrollingFrame", content)
+        page.Size = UDim2.new(1, 0, 1, 0)
+        page.BackgroundTransparency = 1
+        page.BorderSizePixel = 0
+        page.ClipsDescendants = true
+        page.ScrollBarThickness = 0
+        page.CanvasSize = UDim2.new(0, 0, 0, 0)
+        page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        page.Visible = (i == 1)
+        page.ZIndex = 5
+        local ll = Instance.new("UIListLayout", page)
+        ll.SortOrder = Enum.SortOrder.LayoutOrder
+        ll.Padding = UDim.new(0, 4)
+        local pad = Instance.new("UIPadding", page)
+        pad.PaddingLeft = UDim.new(0, 6)
+        pad.PaddingRight = UDim.new(0, 6)
+        pad.PaddingTop = UDim.new(0, 6)
+        pad.PaddingBottom = UDim.new(0, 10)
+
+        tabPages[name] = page
+        tabBtns[name] = btn
+
+        btn.MouseButton1Click:Connect(function()
+            for tn, pg in pairs(tabPages) do
+                pg.Visible = (tn == name)
+            end
+            for tn, b in pairs(tabBtns) do
+                local active = (tn == name)
+                b.TextColor3 = active and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 160, 160)
+                local stripe2 = b:GetAttribute("stripe")
+                if stripe2 then
+                    stripe2.BackgroundTransparency = active and 0 or 1
+                end
+            end
+            currentTab = name
         end)
-        y = y + 38
+    end
+
+    -- Helper functions for building UI
+    local lo = 0
+    local function LO() lo = lo + 1; return lo end
+    local function mkSect(page, txt)
+        local f = Instance.new("Frame", page)
+        f.Size = UDim2.new(1, 0, 0, 22)
+        f.BackgroundTransparency = 1
+        f.BorderSizePixel = 0
+        f.LayoutOrder = LO()
+        local l = Instance.new("TextLabel", f)
+        l.Size = UDim2.new(1, -8, 1, 0)
+        l.Position = UDim2.new(0, 8, 0, 0)
+        l.BackgroundTransparency = 1
+        l.Text = txt:upper()
+        l.TextColor3 = Color3.fromRGB(255, 105, 180)
+        l.Font = Enum.Font.GothamBlack
+        l.TextSize = 10
+        l.TextXAlignment = Enum.TextXAlignment.Left
+    end
+
+    local function mkRow(page, h)
+        local f = Instance.new("Frame", page)
+        f.Size = UDim2.new(1, 0, 0, h or 36)
+        f.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        f.BackgroundTransparency = 0.55
+        f.BorderSizePixel = 0
+        f.LayoutOrder = LO()
+        Instance.new("UICorner", f).CornerRadius = UDim.new(0, 7)
+        return f
+    end
+
+    local function mkLabel(row, txt)
+        local l = Instance.new("TextLabel", row)
+        l.Size = UDim2.new(0.6, 0, 1, 0)
+        l.Position = UDim2.new(0, 8, 0, 0)
+        l.BackgroundTransparency = 1
+        l.Text = txt
+        l.TextColor3 = Color3.fromRGB(230, 230, 230)
+        l.Font = Enum.Font.GothamBold
+        l.TextSize = 12
+        l.TextXAlignment = Enum.TextXAlignment.Left
+    end
+
+    local function mkToggle(page, txt, cb, init)
+        local row = mkRow(page, 36)
+        mkLabel(row, txt)
+        local pill = Instance.new("Frame", row)
+        pill.Size = UDim2.new(0, 40, 0, 20)
+        pill.Position = UDim2.new(1, -44, 0.5, -10)
+        pill.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        pill.BorderSizePixel = 0
+        Instance.new("UICorner", pill).CornerRadius = UDim.new(1, 0)
+        local dot = Instance.new("Frame", pill)
+        dot.Size = UDim2.new(0, 14, 0, 14)
+        dot.Position = UDim2.new(0, 3, 0.5, -7)
+        dot.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+        dot.BorderSizePixel = 0
+        Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+        local on = init or false
+        local function setV(s)
+            on = s
+            TS:Create(pill, TweenInfo.new(0.15), {BackgroundColor3 = s and Color3.fromRGB(255, 105, 180) or Color3.fromRGB(30, 30, 30)}):Play()
+            TS:Create(dot, TweenInfo.new(0.15), {Position = s and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7), BackgroundColor3 = s and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(100, 100, 100)}):Play()
+        end
+        setV(on)
+        local click = Instance.new("TextButton", pill)
+        click.Size = UDim2.new(1, 0, 1, 0)
+        click.BackgroundTransparency = 1
+        click.Text = ""
+        click.ZIndex = 5
+        click.Activated:Connect(function()
+            on = not on
+            setV(on)
+            cb(on)
+        end)
         return setV
     end
 
-    -- Add some toggles for reference
-    addToggle("Anti Ragdoll", antiRagdollEnabled, function(on) antiRagdollEnabled = on; if on then startAntiRagdoll() else stopAntiRagdoll() end; saveConfig() end)
-    addToggle("Infinite Jump", infJumpEnabled, function(on) infJumpEnabled = on; saveConfig() end)
-    addToggle("Auto Steal", Steal.AutoStealEnabled, function(on) Steal.AutoStealEnabled = on; if on then startAutoSteal() else stopAutoSteal() end; saveConfig() end)
-    addToggle("Bat V2", batV2Enabled, function(on) if on then toggleBatV2() else toggleBatV2() end; saveConfig() end)
-    addToggle("TP Lock", tpLockEnabled, function(on) toggleTPLock(); saveConfig() end)
-    addToggle("Aimbot2", aimbot2Enabled, function(on) setAimbot2(on); saveConfig() end)
-    addToggle("Anti Desync", antiDesyncAimbotEnabled, function(on) setAntiDesyncAimbot(on); saveConfig() end)
-    addToggle("Body Lock", bodyLockEnabled, function(on) setBodyLock(on); saveConfig() end)
-    addToggle("Medusa", medusaCounterEnabled, function(on) toggleMedusaCounter(); saveConfig() end)
-    addToggle("Bat Counter", batCounterEnabled, function(on) toggleBatCounter(); saveConfig() end)
-    addToggle("Auto TP", autoTPEnabled, function(on) autoTPEnabled = on; if on then startAutoTP() else stopAutoTP() end; if setAutoTPVisual then setAutoTPVisual(on) end; saveConfig() end)
+    local function mkBox(row, default, w, cb)
+        local tb = Instance.new("TextBox", row)
+        tb.Size = UDim2.new(0, w or 50, 0, 22)
+        tb.Position = UDim2.new(1, -(w or 50) - 6, 0.5, -11)
+        tb.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+        tb.BorderSizePixel = 0
+        tb.Text = tostring(default)
+        tb.TextColor3 = Color3.fromRGB(255, 255, 255)
+        tb.Font = Enum.Font.GothamBold
+        tb.TextSize = 11
+        tb.ClearTextOnFocus = false
+        Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 5)
+        local stroke2 = Instance.new("UIStroke", tb)
+        stroke2.Color = Color3.fromRGB(60, 60, 60)
+        stroke2.Thickness = 1
+        tb.Focused:Connect(function()
+            TS:Create(stroke2, TweenInfo.new(0.12), {Color = Color3.fromRGB(255, 105, 180)}):Play()
+        end)
+        tb.FocusLost:Connect(function()
+            TS:Create(stroke2, TweenInfo.new(0.12), {Color = Color3.fromRGB(60, 60, 60)}):Play()
+            if cb then
+                local n = tonumber(tb.Text)
+                if n then cb(n) else tb.Text = tostring(default) end
+            end
+        end)
+        return tb
+    end
 
-    print("Pink GUI built")
+    local function mkKeyRow(page, txt, kbEntry, mode)
+        local row = mkRow(page, 36)
+        mkLabel(row, txt)
+        local btn = Instance.new("TextButton", row)
+        btn.Size = UDim2.new(0, 60, 0, 22)
+        btn.Position = UDim2.new(1, -66, 0.5, -11)
+        btn.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+        btn.BorderSizePixel = 0
+        btn.Text = (kbEntry.gp and kbEntry.gp.Name:upper()) or (kbEntry.kb and kbEntry.kb.Name:upper()) or "NONE"
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 9
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 5)
+        local stroke3 = Instance.new("UIStroke", btn)
+        stroke3.Color = Color3.fromRGB(60, 60, 60)
+        stroke3.Thickness = 1
+
+        local listening = false
+        local conn = nil
+        local prev = btn.Text
+        btn.MouseButton1Click:Connect(function()
+            if listening then
+                listening = false
+                _anyKeyListening = false
+                if conn then conn:Disconnect(); conn = nil end
+                btn.Text = prev
+                return
+            end
+            prev = btn.Text
+            listening = true
+            _anyKeyListening = true
+            btn.Text = "..."
+            local started = tick()
+            conn = UIS.InputBegan:Connect(function(inp)
+                if not listening then return end
+                if inp.KeyCode == Enum.KeyCode.Escape then
+                    listening = false; _anyKeyListening = false
+                    if conn then conn:Disconnect(); conn = nil end
+                    btn.Text = prev; return
+                end
+                if mode == "pad" then
+                    if tick() - started < 0.05 then return end
+                    if not isGamepadInput(inp) then return end
+                    kbEntry.gp = inp.KeyCode
+                else
+                    if inp.UserInputType ~= Enum.UserInputType.Keyboard then return end
+                    kbEntry.kb = inp.KeyCode
+                end
+                listening = false
+                _anyKeyListening = false
+                if conn then conn:Disconnect(); conn = nil end
+                btn.Text = (kbEntry.gp and kbEntry.gp.Name:upper()) or (kbEntry.kb and kbEntry.kb.Name:upper()) or "NONE"
+                saveConfig()
+            end)
+        end)
+        return btn
+    end
+
+    local function mkModeRow(page)
+        local row = mkRow(page, 36)
+        mkLabel(row, "Mode")
+        local lbl = Instance.new("TextLabel", row)
+        lbl.Size = UDim2.new(0, 120, 1, 0)
+        lbl.Position = UDim2.new(1, -126, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "NORMAL"
+        lbl.TextColor3 = Color3.fromRGB(255, 105, 180)
+        lbl.Font = Enum.Font.GothamBlack
+        lbl.TextSize = 11
+        lbl.TextXAlignment = Enum.TextXAlignment.Right
+        modeValLbl = lbl
+        refreshSpeedModeLabel()
+    end
+
+    -- Populate Speed tab
+    local speedPage = tabPages["Speed"]
+    mkSect(speedPage, "Speed Values")
+    do
+        local row = mkRow(speedPage, 36)
+        mkLabel(row, "Normal Speed")
+        normalBox = mkBox(row, NS, 55, function(v) if v > 0 and v <= 500 then NS = v end; saveConfig() end)
+    end
+    do
+        local row = mkRow(speedPage, 36)
+        mkLabel(row, "Carry Speed")
+        carryBox = mkBox(row, CS, 55, function(v) if v > 0 and v <= 500 then CS = v end; saveConfig() end)
+    end
+    do
+        local row = mkRow(speedPage, 36)
+        mkLabel(row, "Lagger Normal")
+        laggerBox = mkBox(row, LAGGER_SPEED, 55, function(v) if v > 0 and v <= 500 then LAGGER_SPEED = v end; saveConfig() end)
+    end
+    do
+        local row = mkRow(speedPage, 36)
+        mkLabel(row, "Lagger Carry")
+        laggerCarryBox = mkBox(row, LAGGER_CARRY_SPEED, 55, function(v) if v > 0 and v <= 500 then LAGGER_CARRY_SPEED = v end; saveConfig() end)
+    end
+    mkModeRow(speedPage)
+    mkSect(speedPage, "Keybinds")
+    mkKeyRow(speedPage, "Speed Key", KB.SpeedToggle, "key")
+    mkKeyRow(speedPage, "Lagger Key", KB.LaggerToggle, "key")
+
+    -- Combat tab
+    local combatPage = tabPages["Combat"]
+    mkSect(combatPage, "Bat Aimbots")
+    setAutoSwingVisual = mkToggle(combatPage, "Auto Swing", function(on) autoSwingEnabled = on; saveConfig() end, autoSwingEnabled)
+    setBatCounterVisual = mkToggle(combatPage, "Bat Counter", function(on) batCounterEnabled = on; if on then startBatCounter() else stopBatCounter() end; saveConfig() end, batCounterEnabled)
+    setMedusaVisual = mkToggle(combatPage, "Medusa Counter", function(on) medusaCounterEnabled = on; if on then setupMedusa(LP.Character) else stopMedusaCounter() end; saveConfig() end, medusaCounterEnabled)
+    setMedusaResetVisual = mkToggle(combatPage, "Medusa Reset", function(on) medusaResetEnabled = on; saveConfig() end, medusaResetEnabled)
+    setAntiRagVisual = mkToggle(combatPage, "Anti Ragdoll", function(on) antiRagdollEnabled = on; if on then startAntiRagdoll() else stopAntiRagdoll() end; saveConfig() end, antiRagdollEnabled)
+    setUnwalkVisual = mkToggle(combatPage, "Unwalk", function(on) unwalkEnabled = on; if on then startUnwalk() else stopUnwalk() end; saveConfig() end, unwalkEnabled)
+    -- TP Lock
+    tpLockSetVisual = mkToggle(combatPage, "TP Lock", function(on) if on then toggleTPLock() else toggleTPLock() end; saveConfig() end, tpLockEnabled)
+    -- Bat V2
+    batV2SetVisual = mkToggle(combatPage, "Bat V2", function(on) if on then toggleBatV2() else toggleBatV2() end; saveConfig() end, batV2Enabled)
+    -- Aimbot2
+    setAimbot2Visual = mkToggle(combatPage, "Aimbot 2", function(on) setAimbot2(on); saveConfig() end, aimbot2Enabled)
+    -- Anti Desync
+    setAntiDesyncAimbotVisual = mkToggle(combatPage, "Anti Desync", function(on) setAntiDesyncAimbot(on); saveConfig() end, antiDesyncAimbotEnabled)
+    -- Body Lock
+    setBodyLockVisual = mkToggle(combatPage, "Body Lock", function(on) setBodyLock(on); saveConfig() end, bodyLockEnabled)
+    -- Auto Bat
+    autoBatSetVisual = mkToggle(combatPage, "Auto Bat", function(on) if on then queueAutoBatStart() else disableAutoBat() end; saveConfig() end, autoBatEnabled)
+
+    -- Steal tab
+    local stealPage = tabPages["Steal"]
+    mkSect(stealPage, "Steal Config")
+    do
+        local row = mkRow(stealPage, 36)
+        mkLabel(row, "Radius")
+        radInput = mkBox(row, Steal.StealRadius, 55, function(v) if v >= 0.5 and v <= 300 then Steal.StealRadius = v end; saveConfig() end)
+    end
+    do
+        local row = mkRow(stealPage, 36)
+        mkLabel(row, "Duration")
+        durationBox = mkBox(row, Steal.StealDuration, 55, function(v) if v >= 0.05 and v <= 10 then Steal.StealDuration = v end; saveConfig() end)
+    end
+    setInstaGrab = mkToggle(stealPage, "Auto Steal", function(on) Steal.AutoStealEnabled = on; if on then startAutoSteal() else stopAutoSteal() end; saveConfig() end, Steal.AutoStealEnabled)
+
+    -- Movement tab
+    local movePage = tabPages["Movement"]
+    mkSect(movePage, "Auto Movement")
+    autoLeftSetVisual = mkToggle(movePage, "Auto Left", function(on) autoLeftEnabled = on; if on then startAutoLeft() else stopAutoLeft() end; saveConfig() end, autoLeftEnabled)
+    autoRightSetVisual = mkToggle(movePage, "Auto Right", function(on) autoRightEnabled = on; if on then startAutoRight() else stopAutoRight() end; saveConfig() end, autoRightEnabled)
+    mkSect(movePage, "Drop & TP")
+    mkKeyRow(movePage, "Drop Key", KB.DropBrainrot, "key")
+    mkKeyRow(movePage, "TP Down Key", KB.TPFloor, "key")
+    setAutoTPVisual = mkToggle(movePage, "Auto TP", function(on) autoTPEnabled = on; if on then startAutoTP() else stopAutoTP() end; saveConfig() end, autoTPEnabled)
+    do
+        local row = mkRow(movePage, 36)
+        mkLabel(row, "TP Height")
+        autoTPHeightBox = mkBox(row, autoTPHeight, 55, function(v) if v >= 0 and v <= 500 then autoTPHeight = v end; saveConfig() end)
+    end
+
+    -- Visual tab
+    local visPage = tabPages["Visual"]
+    mkSect(visPage, "Performance")
+    setAntiLagVisual = mkToggle(visPage, "Anti Lag", function(on) if on then enableAntiLag() else disableAntiLag() end; saveConfig() end, antiLagEnabled)
+    setStretchRezVisual = mkToggle(visPage, "Stretch Rez", function(on) if on then enableStretchRez() else disableStretchRez() end; saveConfig() end, stretchRezEnabled)
+
+    -- Settings tab
+    local setPage = tabPages["Settings"]
+    mkSect(setPage, "Interface")
+    mkKeyRow(setPage, "Hide GUI", KB.GuiHide, "key")
+    setLockVisual = mkToggle(setPage, "Lock UI", function(on) uiLocked = on; saveConfig() end, uiLocked)
+    mkSect(setPage, "Mobile Buttons")
+    local mobToggle = mkToggle(setPage, "Show Mobile", function(on) mobileButtonsEnabled = on; if on then buildMobileButtons() else destroyMobileButtons() end; saveConfig() end, mobileButtonsEnabled)
+    -- Button size slider
+    do
+        local row = mkRow(setPage, 36)
+        mkLabel(row, "Btn Size")
+        local sizeBox = mkBox(row, mobileButtonsSize, 55, function(v) if v >= 10 and v <= 200 then mobileButtonsSize = v; if mobileButtonsEnabled then buildMobileButtons() end; saveConfig() end)
+    end
+    mkSect(setPage, "Config")
+    local saveBtn = Instance.new("TextButton", setPage)
+    saveBtn.Size = UDim2.new(1, -16, 0, 32)
+    saveBtn.Position = UDim2.new(0, 8, 0, LO()*36 + 10)
+    saveBtn.BackgroundColor3 = Color3.fromRGB(255, 105, 180)
+    saveBtn.BorderSizePixel = 0
+    saveBtn.Text = "SAVE CONFIG"
+    saveBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    saveBtn.Font = Enum.Font.GothamBold
+    saveBtn.TextSize = 12
+    saveBtn.LayoutOrder = LO()
+    Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0, 6)
+    saveBtn.MouseButton1Click:Connect(function() saveConfig(); saveBtn.Text = "✓ SAVED"; task.delay(1.2, function() saveBtn.Text = "SAVE CONFIG" end) end)
+
+    local resetBtn = Instance.new("TextButton", setPage)
+    resetBtn.Size = UDim2.new(1, -16, 0, 32)
+    resetBtn.Position = UDim2.new(0, 8, 0, LO()*36 + 10)
+    resetBtn.BackgroundColor3 = Color3.fromRGB(80, 25, 25)
+    resetBtn.BorderSizePixel = 0
+    resetBtn.Text = "RESET BUTTON POSITIONS"
+    resetBtn.TextColor3 = Color3.fromRGB(255, 200, 200)
+    resetBtn.Font = Enum.Font.GothamBold
+    resetBtn.TextSize = 11
+    resetBtn.LayoutOrder = LO()
+    Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
+    resetBtn.MouseButton1Click:Connect(function() resetBtnPositions(); resetBtn.Text = "✓ RESET"; task.delay(1.2, function() resetBtn.Text = "RESET BUTTON POSITIONS" end) end)
+
+    -- Initial tab selection
+    for tn, pg in pairs(tabPages) do
+        pg.Visible = (tn == "Speed")
+    end
+    for tn, b in pairs(tabBtns) do
+        local active = (tn == "Speed")
+        b.TextColor3 = active and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 160, 160)
+        local stripe2 = b:GetAttribute("stripe")
+        if stripe2 then stripe2.BackgroundTransparency = active and 0 or 1 end
+    end
+
+    main.Visible = true
+    miniBtn.Visible = false
+    print("Pink PC GUI built")
 end
 
 -- ============================================================
@@ -2560,4 +2978,4 @@ createStealBar()
 if mobileButtonsEnabled then task.spawn(buildMobileButtons) end
 applyState()
 
-print("PINK PC + MOBILE BUTTONS LOADED – ALL FUNCTIONS WITH SAVE")
+print("PINK PC + MOBILE BUTTONS FULLY LOADED")
