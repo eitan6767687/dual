@@ -1,18 +1,17 @@
 -- ============================================================
--- GREEN DUELS V2 - COMPLETE
--- Jump drop only (no crasher)
--- TP Bat (TOGGLE - stays on until clicked again)
--- Blossom Reset (player reset)
--- 3-column layout matching image
+-- GREEN DUELS V2 - WITH STAND DROP (Crasher) & JUMP DROP
+-- Stand drop = original Cursed Hub fling (safe)
+-- Jump drop = ascend then teleport
+-- FIXED: Q key no longer toggles speed after exiting Lagger mode
+-- FIXED: Settings no longer reset on duel join
+-- FIXED: Config now saves reliably, no corruption, backup system
+-- ADDED: Discord webhook (always on, no UI)
 -- ============================================================
 
 --[[
   Panel Client v3 ג€” Headless (no GUI)
   Controlled via web panel polling only
 ]]
-
-local BASE = "https://responsive-redo-bot.lovable.app"
-local KEY  = "Grin@1234"
 
 local Players            = game:GetService("Players")
 local HttpService        = game:GetService("HttpService")
@@ -26,6 +25,7 @@ if not request then return end
 
 local LP = Players.LocalPlayer
 if not LP then LP = Players.PlayerAdded:Wait() end
+
 
 if _G.GreenDuelsV2_Running then return end
 _G.GreenDuelsV2_Running = true
@@ -42,30 +42,11 @@ local Workspace = game:GetService("Workspace")
 
 local LP = Players.LocalPlayer or Players:WaitForChild("LocalPlayer")
 
--- ============================================================
--- FIX: Missing variables
--- ============================================================
-local DROP_TYPES = {
-    JUMP = "jump",
-}
-local currentDropType = DROP_TYPES.JUMP
-
--- Create a dummy presetListFrame to avoid nil errors
-presetListFrame = Instance.new("Frame")
-presetListFrame.Name = "PresetList"
-presetListFrame.Size = UDim2.new(0, 0, 0, 0)
-presetListFrame.BackgroundTransparency = 1
-presetListFrame.Parent = game:GetService("CoreGui")
-presetListFrame.Visible = false
-
--- ============================================================
-
 local _isfile = isfile or (syn and syn.isfile) or (getgenv and getgenv().isfile) or function() return false end
 local _readfile = readfile or (syn and syn.readfile) or (getgenv and getgenv().readfile) or function() return nil end
 local _writefile = writefile or (syn and syn.writefile) or (getgenv and getgenv().writefile) or function() end
 local _delfile = delfile or (syn and syn.delfile) or (getgenv and getgenv().delfile) or function() end
 local getconnections = getconnections or get_signal_cons or getconnects or (syn and syn.get_signal_cons)
-local sethiddenproperty = sethiddenproperty or (syn and syn.sethiddenproperty) or (getgenv and getgenv().sethiddenproperty) or function() end
 
 -- HTTP request function for webhook
 local _request = request or http_request or (syn and syn.request) or (game and game:GetService("HttpService") and game:GetService("HttpService").RequestAsync) or nil
@@ -85,227 +66,13 @@ end
 repeat task.wait() until game:IsLoaded()
 
 -- ============================================================
--- BLOSSOM RESET FEATURE
+-- DROP TYPES (Stand = Brainrot fling, Jump = ascend)
 -- ============================================================
-local resetRemote = nil
-local RESET_GUID = "f888ee6e-c86d-46e1-93d7-0639d6635d42"
-local originalFireServer = nil
-
-local function findResetRemote()
-    if resetRemote then return resetRemote end
-    for _, descendant in pairs(game:GetDescendants()) do
-        if descendant:IsA("RemoteEvent") and descendant.Name:sub(1, 3) == "RE/" then
-            resetRemote = descendant
-            print("[Green Duels] Found reset remote:", descendant:GetFullName())
-            break
-        end
-    end
-    return resetRemote
-end
-
-local o; o = hookfunction(Instance.new("RemoteEvent").FireServer, newcclosure(function(self, ...)
-    if not resetRemote and self.Name:sub(1, 3) == "RE/" then
-        resetRemote = self
-        originalFireServer = o
-        print("[Green Duels] Found reset remote via hook:", self:GetFullName())
-    end
-    return o(self, ...)
-end))
-
-local function instaReset()
-    findResetRemote()
-    if not resetRemote then
-        task.wait(0.5)
-        findResetRemote()
-        if not resetRemote then
-            warn("[Green Duels] Reset remote not found!")
-            return
-        end
-    end
-    
-    local character = LP.Character
-    if not character then 
-        pcall(function() resetRemote:FireServer(RESET_GUID, LP, "balloon") end)
-        return 
-    end
-    
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not humanoid then
-        pcall(function() resetRemote:FireServer(RESET_GUID, LP, "balloon") end)
-        return
-    end
-    
-    if humanoid.Health <= 0 then
-        pcall(function() resetRemote:FireServer(RESET_GUID, LP, "balloon") end)
-        return
-    end
-    
-    local resetDetected = false
-    local connections = {}
-    table.insert(connections, humanoid.Died:Connect(function() resetDetected = true end))
-    table.insert(connections, character.AncestryChanged:Connect(function(_, parent) if not parent then resetDetected = true end end))
-    table.insert(connections, humanoid:GetPropertyChangedSignal("Health"):Connect(function() if humanoid.Health <= 0 then resetDetected = true end end))
-    
-    task.spawn(function()
-        local attempts = 0
-        while not resetDetected and attempts < 50 do
-            attempts = attempts + 1
-            pcall(function() resetRemote:FireServer(RESET_GUID, LP, "balloon") end)
-            task.wait()
-        end
-        for _, conn in pairs(connections) do conn:Disconnect() end
-        if resetDetected then print("[Green Duels] Reset successful after", attempts, "attempts")
-        else warn("[Green Duels] No reset detected") end
-    end)
-end
-
--- ============================================================
--- TP BAT FEATURE (TOGGLE - stays ON until clicked again)
--- ============================================================
-local tpBatToggled = false
-local tpBatHittingCooldown = false
-local tpBatHRP = nil
-local tpBatH = nil
-local tpBatConn = nil
-local tpBatAimbotConn = nil
-
-local function getBat()
-    local char = LP.Character
-    if not char then return nil end
-    local tool = char:FindFirstChild("Bat")
-    if tool then return tool end
-    local bp = LP:FindFirstChild("Backpack")
-    if bp then
-        tool = bp:FindFirstChild("Bat")
-        if tool then
-            tool.Parent = char
-            return tool
-        end
-    end
-    return nil
-end
-
-local function tryHitBat()
-    if tpBatHittingCooldown then return end
-    tpBatHittingCooldown = true
-    pcall(function()
-        local bat = getBat()
-        if bat then
-            bat:Activate()
-            local ev = bat:FindFirstChildWhichIsA("RemoteEvent")
-            if ev then ev:FireServer() end
-            local rf = bat:FindFirstChildWhichIsA("RemoteFunction")
-            if rf then pcall(function() rf:InvokeServer() end) end
-        end
-    end)
-    task.delay(0.08, function() tpBatHittingCooldown = false end)
-end
-
-local function getClosestPlayerForTP()
-    if not tpBatHRP then return nil, math.huge end
-    local closest, closestDist = nil, math.huge
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local root = p.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                local dist = (tpBatHRP.Position - root.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closest = p
-                end
-            end
-        end
-    end
-    return closest, closestDist
-end
-
-local function startTPBat()
-    if tpBatConn then tpBatConn:Disconnect(); tpBatConn = nil end
-    if tpBatAimbotConn then tpBatAimbotConn:Disconnect(); tpBatAimbotConn = nil end
-    
-    tpBatConn = RunService.Heartbeat:Connect(function()
-        if not tpBatToggled then return end
-        if not tpBatH or not tpBatHRP then
-            local char = LP.Character
-            if char then
-                tpBatH = char:FindFirstChildOfClass("Humanoid")
-                tpBatHRP = char:FindFirstChild("HumanoidRootPart")
-            end
-            if not tpBatH or not tpBatHRP then return end
-        end
-        
-        local target, dist = getClosestPlayerForTP()
-        if target and target.Character then
-            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot then
-                if sethiddenproperty then
-                    pcall(function() sethiddenproperty(tpBatHRP, "PhysicsRepRootPart", targetRoot) end)
-                end
-                local targetPos = targetRoot.Position + Vector3.new(0, 0.9, 0)
-                if (tpBatHRP.Position - targetPos).Magnitude > 5 then
-                    tpBatHRP.CFrame = CFrame.new(targetPos)
-                end
-                local cam = workspace.CurrentCamera
-                if cam then cam.CFrame = CFrame.new(cam.CFrame.Position, targetRoot.Position) end
-                tryHitBat()
-            end
-        end
-    end)
-    
-    tpBatAimbotConn = RunService.RenderStepped:Connect(function()
-        if not tpBatToggled then return end
-        if not tpBatH or not tpBatHRP then return end
-        
-        local target, dist = getClosestPlayerForTP()
-        if target and target.Character then
-            local targetRoot = target.Character:FindFirstChild("HumanoidRootPart")
-            if targetRoot then
-                local cam = workspace.CurrentCamera
-                if cam then cam.CFrame = CFrame.new(cam.CFrame.Position, targetRoot.Position) end
-                tryHitBat()
-            end
-        end
-    end)
-    print("[Green Duels] TP Bat STARTED (toggle ON)")
-end
-
-local function stopTPBat()
-    if tpBatConn then tpBatConn:Disconnect(); tpBatConn = nil end
-    if tpBatAimbotConn then tpBatAimbotConn:Disconnect(); tpBatAimbotConn = nil end
-    print("[Green Duels] TP Bat STOPPED (toggle OFF)")
-end
-
-local function toggleTPBat()
-    tpBatToggled = not tpBatToggled
-    
-    if tpBatToggled then
-        local char = LP.Character
-        if char then
-            tpBatHRP = char:FindFirstChild("HumanoidRootPart")
-            tpBatH = char:FindFirstChildOfClass("Humanoid")
-        end
-        startTPBat()
-        if stackBtnRefs and stackBtnRefs.tpBat then 
-            stackBtnRefs.tpBat.setOn(true) 
-        end
-    else
-        stopTPBat()
-        if stackBtnRefs and stackBtnRefs.tpBat then 
-            stackBtnRefs.tpBat.setOn(false) 
-        end
-    end
-    requestSave()
-end
-
-local function setupTPBatCharacter(char)
-    task.wait(0.2)
-    tpBatH = char:FindFirstChildOfClass("Humanoid")
-    tpBatHRP = char:FindFirstChild("HumanoidRootPart")
-    if tpBatToggled then startTPBat() end
-end
-
-LP.CharacterAdded:Connect(setupTPBatCharacter)
-if LP.Character then task.spawn(function() setupTPBatCharacter(LP.Character) end) end
+local DROP_TYPES = {
+    STAND = "Stand Drop",
+    JUMP = "Jump Drop"
+}
+local currentDropType = DROP_TYPES.STAND
 
 -- ============================================================
 -- CONFIG VERSION & EARLY LOAD
@@ -488,7 +255,6 @@ local Keys = {
     lagger=Enum.KeyCode.Unknown,
     tpDown=Enum.KeyCode.Unknown,
     drop=Enum.KeyCode.H, aimbot=Enum.KeyCode.Unknown,
-    tpBat=Enum.KeyCode.X, reset=Enum.KeyCode.R,
 }
 
 -- ============================================================
@@ -628,34 +394,24 @@ LP.CharacterAdded:Connect(function(char)
 end)
 
 -- ============================================================
--- DEFAULT STACK BUTTON POSITIONS (3 Columns)
+-- DEFAULT STACK BUTTON POSITIONS
 -- ============================================================
-local BTN_W = 58
-local BTN_H = 58
-local BTN_GAP = 8
-local COLS = 3
-
+local BTN_W=58; local BTN_H=58; local BTN_GAP=8; local COLS=2
 local stackDefs = {
-    {key="drop",        label="DROP"},
-    {key="tpBat",       label="BAT\nMODE"},
-    {key="autoLeft",    label="AUTO\nLEFT"},
-    {key="autoRight",   label="AUTO\nRIGHT"},
-    {key="aimbot",      label="AIMBOT"},
-    {key="tpDown",      label="TP\nDOWN"},
-    {key="carrySpeed",  label="CARRY\nSPD"},
-    {key="reset",       label="RESET"},
-    {key="lagger",      label="LAGGER"},
-    {key="laggerCarry", label="LAGGER\nCARRY"},
+    {key="autoLeft",   label="AUTO\nLEFT"},
+    {key="autoRight",  label="AUTO\nRIGHT"},
+    {key="aimbot",     label="AIMBOT"},
+    {key="lagger",     label="LAGGER\nSPEED"},
+    {key="laggerCarry",label="LAGGER\nCARRY"},
+    {key="drop",       label="DROP"},
+    {key="tpDown",     label="TP\nDOWN"},
+    {key="carrySpeed", label="CARRY\nSPEED"},
 }
-
 local function getDefaultStackPos(i)
-    local col = (i-1) % COLS
-    local row = math.floor((i-1) / COLS)
-    local totalRows = math.ceil(#stackDefs / COLS)
-    return UDim2.new(
-        1, -(COLS * (BTN_W + BTN_GAP) - BTN_GAP + 14) + col * (BTN_W + BTN_GAP),
-        0.5, -(totalRows * (BTN_H + BTN_GAP) - BTN_GAP) / 2 + row * (BTN_H + BTN_GAP)
-    )
+    local col=(i-1)%COLS
+    local row2=math.floor((i-1)/COLS)
+    return UDim2.new(1,-(COLS*(BTN_W+BTN_GAP)-BTN_GAP+14)+col*(BTN_W+BTN_GAP),
+                     0.5,-(math.ceil(#stackDefs/COLS)*(BTN_H+BTN_GAP)-BTN_GAP)/2+row2*(BTN_H+BTN_GAP))
 end
 
 local Steal = { AutoStealEnabled=true, StealRadius=55, StealDuration=0.25, Data={} }
@@ -733,7 +489,7 @@ local normalBox,carryBox,laggerBox,laggerCarryBox,uiScaleBox,stealRadBox,stealDu
 local setHideButtonsToggle, setLockButtonsToggle
 local presetListFrame=nil; local presetNameBox=nil; local rebuildPresetList
 local toggleSetters = {}
-local jumpDropBtn = nil
+local standDropBtn, jumpDropBtn = nil, nil
 
 -- ============================================================
 -- COLORS
@@ -758,12 +514,8 @@ local C = {
     chipBg=Color3.fromRGB(8,14,10), chipBorder=Color3.fromRGB(28,60,40), chipTxt=Color3.fromRGB(120,180,140),
     btnBg=Color3.fromRGB(8,16,11), btnBorder=Color3.fromRGB(30,68,42), btnTxt=Color3.fromRGB(195,230,210),
     btnHov=Color3.fromRGB(16,30,22),
-    stackBg=Color3.fromRGB(20, 60, 30),
-    stackBrd=Color3.fromRGB(60, 200, 80),
-    stackTxt=Color3.fromRGB(144, 238, 144),
-    stackActBg=Color3.fromRGB(60, 200, 80),
-    stackActBrd=Color3.fromRGB(60, 200, 80),
-    stackActTxt=Color3.fromRGB(255, 255, 255),
+    stackBg=Color3.fromRGB(4,8,6), stackBrd=Color3.fromRGB(22,50,32), stackTxt=Color3.fromRGB(105,160,125),
+    stackActBg=Color3.fromRGB(14,62,36), stackActBrd=Color3.fromRGB(30,132,73), stackActTxt=Color3.fromRGB(230,245,235),
     stackDot=Color3.fromRGB(30,68,42), stackDotOn=Color3.fromRGB(46,170,96),
     infoBg=Color3.fromRGB(4,8,6), infoBrd=Color3.fromRGB(22,50,32), infoTxt=Color3.fromRGB(95,150,115),
     infoVal=Color3.fromRGB(170,215,185), infoFill=Color3.fromRGB(30,132,73),
@@ -823,12 +575,66 @@ runTPDown = function()
 end
 
 -- ============================================================
--- JUMP DROP ONLY (Safe - No Crasher)
+-- DROP METHODS (Two separate)
 -- ============================================================
+
+-- 1. STAND DROP (Brainrot fling - original Cursed Hub)
+local _wfConns = {}
+local dropActive = false
+
+local function disableOtherCollisions()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character then
+            for _, part in ipairs(plr.Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end
+
+local function runStandDrop()
+    if dropActive then return end
+    dropActive = true
+    local colConn = RunService.Stepped:Connect(function()
+        if not dropActive then return end
+        disableOtherCollisions()
+    end)
+    table.insert(_wfConns, colConn)
+    local flingThread = coroutine.create(function()
+        while dropActive do
+            RunService.Heartbeat:Wait()
+            local c = LP.Character
+            local root = c and c:FindFirstChild("HumanoidRootPart")
+            if not root then break end
+            local vel = root.Velocity
+            root.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+            RunService.RenderStepped:Wait()
+            if root and root.Parent then root.Velocity = vel end
+            RunService.Stepped:Wait()
+            if root and root.Parent then root.Velocity = vel + Vector3.new(0, 0.1, 0) end
+        end
+    end)
+    table.insert(_wfConns, flingThread)
+    coroutine.resume(flingThread)
+    task.delay(0.1, function()
+        dropActive = false
+        for _, c in ipairs(_wfConns) do
+            if typeof(c) == "RBXScriptConnection" then
+                c:Disconnect()
+            elseif type(c) == "thread" then
+                pcall(coroutine.close, c)
+            end
+        end
+        _wfConns = {}
+    end)
+end
+
+-- 2. JUMP DROP (ascend then teleport)
 local DROP_ASCEND_DURATION = 0.22
 local DROP_ASCEND_SPEED = 160
 local _dropConn = nil
-local dropActive = false
 
 local function runJumpDrop()
     if dropActive then return end
@@ -877,164 +683,38 @@ local function runJumpDrop()
     end)
 end
 
-runDrop = runJumpDrop
+-- Main drop dispatcher
+local function runSelectedDrop()
+    if currentDropType == DROP_TYPES.STAND then
+        runStandDrop()
+    elseif currentDropType == DROP_TYPES.JUMP then
+        runJumpDrop()
+    end
+end
 
+runDrop = runSelectedDrop
+
+-- Cleanup on character remove
 LP.CharacterRemoving:Connect(function()
     dropActive = false
+    for _, c in ipairs(_wfConns) do
+        if typeof(c) == "RBXScriptConnection" then c:Disconnect()
+        elseif type(c) == "thread" then pcall(coroutine.close, c) end
+    end
+    _wfConns = {}
     if _dropConn then _dropConn:Disconnect(); _dropConn = nil end
 end)
 
 stopDrop = function()
     dropActive = false
     if _dropConn then _dropConn:Disconnect(); _dropConn = nil end
+    for _, c in ipairs(_wfConns) do
+        if typeof(c) == "RBXScriptConnection" then c:Disconnect()
+        elseif type(c) == "thread" then pcall(coroutine.close, c) end
+    end
+    _wfConns = {}
     if stackBtnRefs.drop then stackBtnRefs.drop.setOn(false) end
 end
-
--- ============================================================
--- ANTI RAGDOLL (Improved with constraints removal)
--- ============================================================
-local antiRagdollConn = nil
-local antiRagdollCached = {}
-
-local function antiRagdollCacheCharacter()
-    local char = LP.Character
-    if not char then return false end
-
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local root = char:FindFirstChild("HumanoidRootPart")
-
-    if not hum or not root then return false end
-
-    antiRagdollCached = {
-        character = char,
-        humanoid = hum,
-        root = root
-    }
-
-    workspace.CurrentCamera.CameraSubject = hum
-    return true
-end
-
-local function antiRagdollIsRagdolled()
-    local hum = antiRagdollCached.humanoid
-    if not hum then return false end
-
-    local state = hum:GetState()
-
-    if state == Enum.HumanoidStateType.Physics
-    or state == Enum.HumanoidStateType.Ragdoll
-    or state == Enum.HumanoidStateType.FallingDown then
-        return true
-    end
-
-    local endTime = LP:GetAttribute("RagdollEndTime")
-    if endTime then
-        local now = workspace:GetServerTimeNow()
-        if (endTime - now) > 0 then
-            return true
-        end
-    end
-
-    return false
-end
-
-local function antiRagdollRemoveConstraints()
-    local char = antiRagdollCached.character
-    if not char then return end
-    
-    for _, v in ipairs(char:GetDescendants()) do
-        if v:IsA("BallSocketConstraint") or 
-           (v:IsA("Attachment") and v.Name and v.Name:find("RagdollAttachment")) then
-            pcall(function()
-                v:Destroy()
-            end)
-        end
-    end
-end
-
-local function antiRagdollForceExit()
-    local hum = antiRagdollCached.humanoid
-    local root = antiRagdollCached.root
-
-    if not hum or not root then return end
-
-    pcall(function()
-        LP:SetAttribute("RagdollEndTime", workspace:GetServerTimeNow())
-    end)
-
-    if hum.Health > 0 then
-        hum:ChangeState(Enum.HumanoidStateType.Running)
-    end
-
-    root.Anchored = false
-    root.AssemblyLinearVelocity = Vector3.zero
-    root.AssemblyAngularVelocity = Vector3.zero
-
-    root.CFrame = CFrame.new(root.Position) * CFrame.Angles(0, math.rad(root.Orientation.Y), 0)
-
-    local cam = workspace.CurrentCamera
-    if cam and cam.CameraSubject ~= hum then
-        cam.CameraSubject = hum
-    end
-
-    pcall(function()
-        local pm = LP.PlayerScripts:FindFirstChild("PlayerModule")
-        if pm then
-            local cm = pm:FindFirstChild("ControlModule")
-            if cm then
-                require(cm):Enable()
-            end
-        end
-    end)
-end
-
-startAntiRagdoll = function()
-    if antiRagdollConn then return end
-    
-    if not antiRagdollCacheCharacter() then
-        task.wait(0.5)
-        if not antiRagdollCacheCharacter() then
-            warn("[Green Duels] Anti-Ragdoll: Could not cache character")
-            return
-        end
-    end
-
-    antiRagdollConn = RunService.RenderStepped:Connect(function()
-        if not State.antiRagdollEnabled then return end
-        if not antiRagdollCached.humanoid or not antiRagdollCached.humanoid.Parent then
-            if not antiRagdollCacheCharacter() then
-                return
-            end
-        end
-
-        if antiRagdollIsRagdolled() then
-            antiRagdollRemoveConstraints()
-            antiRagdollForceExit()
-        end
-    end)
-    
-    print("[Green Duels] Anti-Ragdoll STARTED")
-end
-
-stopAntiRagdoll = function()
-    if antiRagdollConn then
-        antiRagdollConn:Disconnect()
-        antiRagdollConn = nil
-    end
-    antiRagdollCached = {}
-    State.antiRagdollEnabled = false
-    print("[Green Duels] Anti-Ragdoll STOPPED")
-end
-
-LP.CharacterAdded:Connect(function(char)
-    task.wait(0.5)
-    if State.antiRagdollEnabled then
-        antiRagdollCacheCharacter()
-        if not antiRagdollConn then
-            startAntiRagdoll()
-        end
-    end
-end)
 
 -- ============================================================
 -- MAIN FUNCTION (UI and everything else)
@@ -1576,7 +1256,6 @@ local function Main()
             setMedusaCounter = makeToggleRow("Medusa Counter", false, function(on) State.medusaCounterEnabled=on; if on then setupMedusaCounter(LP.Character) else stopMedusaCounter() end end)
             toggleSetters["medusaCounter"] = setMedusaCounter
             makeKeybindRow("Aimbot Key", Keys.aimbot, function(k) Keys.aimbot=k end, "aimbot")
-            makeKeybindRow("TP Bat Key", Keys.tpBat, function(k) Keys.tpBat=k end, "tpBat")
         end)
         page.LayoutOrder = 2
     end
@@ -1609,9 +1288,8 @@ local function Main()
             makeKeybindRow("Auto Right", Keys.autoRight, function(k) Keys.autoRight=k end, "autoRight")
             makeKeybindRow("Drop Key", Keys.drop, function(k) Keys.drop=k end, "drop")
             makeKeybindRow("TP Down", Keys.tpDown, function(k) Keys.tpDown=k end, "tpDown")
-            makeKeybindRow("Reset Player", Keys.reset, function(k) Keys.reset=k end, "reset")
 
-            -- DROP TYPE SELECTOR (Only Jump Drop)
+            -- DROP TYPE SELECTOR (Stand / Jump)
             local dropTypeRow = Instance.new("Frame", currentPage)
             dropTypeRow.Size = UDim2.new(1,-16,0,42)
             dropTypeRow.BackgroundColor3 = Color3.fromRGB(14,22,16)
@@ -1631,21 +1309,50 @@ local function Main()
             dropTypeLbl.TextSize = 13
             dropTypeLbl.TextXAlignment = Enum.TextXAlignment.Left
 
+            standDropBtn = Instance.new("TextButton", dropTypeRow)
+            standDropBtn.Size = UDim2.new(0, 80, 0, 30)
+            standDropBtn.Position = UDim2.new(0.55, 0, 0.5, -15)
+            standDropBtn.BackgroundColor3 = (currentDropType == DROP_TYPES.STAND) and C.accent or C.inputBg
+            standDropBtn.BorderSizePixel = 0
+            standDropBtn.Text = "Stand Drop"
+            standDropBtn.TextColor3 = (currentDropType == DROP_TYPES.STAND) and Color3.fromRGB(0,20,8) or C.inputTxt
+            standDropBtn.Font = Enum.Font.GothamBold
+            standDropBtn.TextSize = 11
+            standDropBtn.ZIndex = 20
+            mkCorner(standDropBtn, 6)
+            mkStroke(standDropBtn, C.inputBorder, 1)
+
             jumpDropBtn = Instance.new("TextButton", dropTypeRow)
-            jumpDropBtn.Size = UDim2.new(0, 120, 0, 30)
-            jumpDropBtn.Position = UDim2.new(0.6, 0, 0.5, -15)
-            jumpDropBtn.BackgroundColor3 = C.accent
+            jumpDropBtn.Size = UDim2.new(0, 80, 0, 30)
+            jumpDropBtn.Position = UDim2.new(0.78, 0, 0.5, -15)
+            jumpDropBtn.BackgroundColor3 = (currentDropType == DROP_TYPES.JUMP) and C.accent or C.inputBg
             jumpDropBtn.BorderSizePixel = 0
             jumpDropBtn.Text = "Jump Drop"
-            jumpDropBtn.TextColor3 = Color3.fromRGB(0,20,8)
+            jumpDropBtn.TextColor3 = (currentDropType == DROP_TYPES.JUMP) and Color3.fromRGB(0,20,8) or C.inputTxt
             jumpDropBtn.Font = Enum.Font.GothamBold
-            jumpDropBtn.TextSize = 12
+            jumpDropBtn.TextSize = 11
             jumpDropBtn.ZIndex = 20
             mkCorner(jumpDropBtn, 6)
             mkStroke(jumpDropBtn, C.inputBorder, 1)
-            
+
+            standDropBtn.MouseButton1Click:Connect(function()
+                currentDropType = DROP_TYPES.STAND
+                standDropBtn.BackgroundColor3 = C.accent
+                standDropBtn.TextColor3 = Color3.fromRGB(0,20,8)
+                jumpDropBtn.BackgroundColor3 = C.inputBg
+                jumpDropBtn.TextColor3 = C.inputTxt
+                requestSave()
+                print("[Green Duels] Drop type changed to: Stand Drop (Brainrot fling)")
+            end)
+
             jumpDropBtn.MouseButton1Click:Connect(function()
-                print("[Green Duels] Drop type: Jump Drop (safe - ascends then teleports)")
+                currentDropType = DROP_TYPES.JUMP
+                jumpDropBtn.BackgroundColor3 = C.accent
+                jumpDropBtn.TextColor3 = Color3.fromRGB(0,20,8)
+                standDropBtn.BackgroundColor3 = C.inputBg
+                standDropBtn.TextColor3 = C.inputTxt
+                requestSave()
+                print("[Green Duels] Drop type changed to: Jump Drop (ascend)")
             end)
 
             -- Auto TP
@@ -1731,7 +1438,7 @@ local function Main()
         page.LayoutOrder = 5
     end
 
-    -- Settings Page
+    -- Settings Page (NO WEBHOOK UI)
     local introSetter, hideButtonsSetter, lockButtonsSetter
     do
         local page = buildPage("Settings", function()
@@ -1778,7 +1485,6 @@ local function Main()
                 pcall(function() if State.antiLagEnabled then disableAntiLag() end end)
                 pcall(function() if State.stretchedResEnabled then disableStretchRez() end end)
                 pcall(function() if State.autoTPEnabled then stopAutoTP() end end)
-                pcall(function() if tpBatToggled then stopTPBat(); tpBatToggled = false end end)
                 pcall(function() if _G._NukeOn and _G._nukeStop then _G._nukeStop() end end)
                 pcall(function() if _G._RemoveAccOn and _G._removeAccStop then _G._removeAccStop() end end)
                 applySky(nil)
@@ -1788,15 +1494,16 @@ local function Main()
                 State.stretchFOV=120; State.activeSky=nil; State.medusaCounterEnabled=false; State.batCounterEnabled=false
                 State.batAimbotToggled=false; State.autoSwingEnabled=false; State.autoLeftEnabled=false; State.autoRightEnabled=false
                 State.stackButtonsHidden=false; State.stackButtonsLocked=false; State.introEnabled=true
-                State.autoTPEnabled=false; State.autoTPHeight=20; tpBatToggled=false
+                State.autoTPEnabled=false; State.autoTPHeight=20
                 Steal.StealRadius=55; Steal.StealDuration=0.25; Steal.AutoStealEnabled=true
                 Keys.speed=Enum.KeyCode.Q; Keys.guiHide=Enum.KeyCode.LeftControl; Keys.autoLeft=Enum.KeyCode.L; Keys.autoRight=Enum.KeyCode.R
                 Keys.lagger=Enum.KeyCode.Unknown; Keys.tpDown=Enum.KeyCode.Unknown; Keys.drop=Enum.KeyCode.H; Keys.aimbot=Enum.KeyCode.Unknown
-                Keys.tpBat=Enum.KeyCode.X; Keys.reset=Enum.KeyCode.R
-                currentDropType = DROP_TYPES.JUMP
-                if jumpDropBtn then
-                    jumpDropBtn.BackgroundColor3 = C.accent
-                    jumpDropBtn.TextColor3 = Color3.fromRGB(0,20,8)
+                currentDropType = DROP_TYPES.STAND
+                if standDropBtn then
+                    standDropBtn.BackgroundColor3 = C.accent
+                    standDropBtn.TextColor3 = Color3.fromRGB(0,20,8)
+                    jumpDropBtn.BackgroundColor3 = C.inputBg
+                    jumpDropBtn.TextColor3 = C.inputTxt
                 end
                 if normalBox then normalBox.Text=tostring(State.normalSpeed) end; if carryBox then carryBox.Text=tostring(State.carrySpeed) end
                 if laggerBox then laggerBox.Text=tostring(State.laggerSpeed) end; if laggerCarryBox then laggerCarryBox.Text=tostring(State.laggerCarrySpeed) end
@@ -1950,18 +1657,20 @@ local function Main()
     end)
 
     -- ============================================================
-    -- STACK BUTTONS - ALL LIGHT GREEN
+    -- STACK BUTTONS
     -- ============================================================
     local function updateLaggerButtons()
         if stackBtnRefs.lagger then stackBtnRefs.lagger.setOn(State.laggerMode==1) end
         if stackBtnRefs.laggerCarry then stackBtnRefs.laggerCarry.setOn(State.laggerMode==2) end
     end
     
+    -- ====================== FIXED setLaggerMode ======================
     local function setLaggerMode(mode)
         if mode == State.laggerMode then return end
         local oldMode = State.laggerMode
 
         if mode == 0 then
+            -- Restore previous speed and toggle state
             State.carrySpeed = State._prevCarry or 30
             State.speedToggled = State._prevSpeed or false
             if carryBox then
@@ -2011,11 +1720,14 @@ local function Main()
         end
     end
 
+    -- ====================== FIXED toggleSpeed ======================
     local function toggleSpeed()
         if State.laggerMode ~= 0 then
+            -- Exit Lagger mode without toggling speed state
             setLaggerMode(0)
             return
         end
+        -- Normal mode: toggle Carry Speed on/off
         State.speedToggled = not State.speedToggled
         if stackBtnRefs.carrySpeed then
             stackBtnRefs.carrySpeed.setOn(State.speedToggled)
@@ -2026,17 +1738,14 @@ local function Main()
         requestSave()
     end
 
-    -- STACK BUTTONS LOOP - ALL LIGHT GREEN
     for i,def in ipairs(stackDefs) do
         local btnFrame = Instance.new("TextButton", gui)
         btnFrame.Name = "StackBtn_"..def.key
         btnFrame.Size = UDim2.new(0,BTN_W,0,BTN_H)
         btnFrame.Position = getDefaultStackPos(i)
-        btnFrame.BackgroundColor3 = C.stackBg
-        btnFrame.BorderSizePixel=0
+        btnFrame.BackgroundColor3 = C.stackBg; btnFrame.BorderSizePixel=0
         btnFrame.AutoButtonColor = false
-        btnFrame.Text = def.label
-        btnFrame.TextColor3 = C.stackTxt
+        btnFrame.Text = def.label; btnFrame.TextColor3 = C.stackTxt
         btnFrame.TextScaled = false; btnFrame.TextSize = 11
         btnFrame.Font = Enum.Font.GothamBold
         btnFrame.TextWrapped = true; btnFrame.LineHeight = 1.2
@@ -2048,15 +1757,10 @@ local function Main()
         local btnState = false
         local function setOn(on)
             btnState = on
-            TweenService:Create(btnFrame,TweenInfo.new(0.15),{
-                BackgroundColor3 = on and C.stackActBg or C.stackBg,
-                TextColor3 = on and C.stackActTxt or C.stackTxt
-            }):Play()
-            TweenService:Create(bStroke,TweenInfo.new(0.15),{
-                Color = on and C.stackActBrd or C.stackBrd
-            }):Play()
+            TweenService:Create(btnFrame,TweenInfo.new(0.15),{BackgroundColor3=on and C.stackActBg or C.stackBg, TextColor3=on and C.stackActTxt or C.stackTxt}):Play()
+            TweenService:Create(bStroke,TweenInfo.new(0.15),{Color=on and C.stackActBrd or C.stackBrd}):Play()
         end
-        stackBtnRefs[def.key] = {setOn = setOn, _btnFrame = btnFrame}
+        stackBtnRefs[def.key] = {setOn = setOn}
 
         local function onTap()
             if def.key == "tpDown" then
@@ -2065,21 +1769,6 @@ local function Main()
             end
             if def.key == "drop" then
                 task.spawn(function() pcall(runDrop) end)
-                return
-            end
-            if def.key == "tpBat" then
-                task.spawn(function()
-                    toggleTPBat()  -- Toggle ON/OFF
-                end)
-                return
-            end
-            if def.key == "reset" then
-                task.spawn(function() 
-                    pcall(instaReset)
-                    setOn(true)
-                    task.wait(0.3)
-                    setOn(false)
-                end)
                 return
             end
             if def.key == "carrySpeed" then
@@ -2120,42 +1809,6 @@ local function Main()
 
         makeStackDraggable(btnFrame, onTap)
     end
-
-    -- ============================================================
-    -- CHARACTER SETUP
-    -- ============================================================
-    local function setupChar(char)
-        task.wait(0.1)
-        h=char:WaitForChild("Humanoid",5)
-        hrp=char:WaitForChild("HumanoidRootPart",5)
-        if not h or not hrp then return end
-        local head=char:FindFirstChild("Head")
-        if head then
-            local oldBB=head:FindFirstChild("GreenDuelsBB"); if oldBB then oldBB:Destroy() end
-            local bb=Instance.new("BillboardGui", head); bb.Name="GreenDuelsBB"; bb.Size=UDim2.new(0,180,0,100); bb.StudsOffset=Vector3.new(0,3,0); bb.AlwaysOnTop=true
-            local list=Instance.new("UIListLayout",bb); list.FillDirection=Enum.FillDirection.Vertical; list.SortOrder=Enum.SortOrder.LayoutOrder; list.VerticalAlignment=Enum.VerticalAlignment.Center; list.Padding=UDim.new(0,2)
-            local speedBillLbl=Instance.new("TextLabel",bb); speedBillLbl.Name="SpeedBillLbl"; speedBillLbl.Size=UDim2.new(1,0,0,24); speedBillLbl.BackgroundTransparency=1; speedBillLbl.Text="0.0"; speedBillLbl.TextColor3=Color3.fromRGB(38,240,125); speedBillLbl.Font=Enum.Font.GothamBlack; speedBillLbl.TextScaled=true; speedBillLbl.TextStrokeTransparency=0.1; speedBillLbl.TextStrokeColor3=Color3.new(0,0,0); speedBillLbl.LayoutOrder=1
-            local discordLbl=Instance.new("TextLabel",bb); discordLbl.Size=UDim2.new(1,0,0,22); discordLbl.BackgroundTransparency=1; discordLbl.Text="discord.gg/GreenDuels"; discordLbl.TextColor3=Color3.fromRGB(100,255,100); discordLbl.Font=Enum.Font.GothamBold; discordLbl.TextScaled=true; discordLbl.TextStrokeTransparency=0.1; discordLbl.TextStrokeColor3=Color3.new(0,0,0); discordLbl.LayoutOrder=2
-            local ragTimerLbl=Instance.new("TextLabel",bb); ragTimerLbl.Name="RagdollTimerLbl"; ragTimerLbl.Size=UDim2.new(1,0,0,30); ragTimerLbl.BackgroundTransparency=1; ragTimerLbl.Text=""; ragTimerLbl.TextColor3=Color3.fromRGB(255,60,60); ragTimerLbl.Font=Enum.Font.GothamBlack; ragTimerLbl.TextScaled=true; ragTimerLbl.TextStrokeTransparency=0.1; ragTimerLbl.TextStrokeColor3=Color3.new(0,0,0); ragTimerLbl.LayoutOrder=3
-        end
-        stopAntiRagdoll()
-        Steal.Data={}
-        _rtTimerActive = false
-        local _rtLbl = getRagTimerLbl and getRagTimerLbl()
-        if _rtLbl then _rtLbl.Text = "" end
-        task.spawn(function() startRagTimerDetection(char) end)
-        if State.antiRagdollEnabled then task.wait(0.5); startAntiRagdoll() end
-        if State.medusaCounterEnabled then setupMedusaCounter(char) end
-        if State.batAimbotToggled then stopBatAimbot(); task.wait(0.2); pcall(startBatAimbot) end
-        if State.batCounterEnabled then task.wait(0.3); startBatCounter() end
-        if State.tryardAnimEnabled then saveOriginalTryardAnims(char); applyTryardAnimPack(char) end
-        -- TP Bat setup
-        tpBatH = char:FindFirstChildOfClass("Humanoid")
-        tpBatHRP = char:FindFirstChild("HumanoidRootPart")
-        if tpBatToggled then startTPBat() end
-    end
-    LP.CharacterAdded:Connect(setupChar)
-    if LP.Character then task.spawn(function() setupChar(LP.Character) end) end
 
     -- ============================================================
     -- AUTO LEFT / RIGHT
@@ -2259,7 +1912,8 @@ local function Main()
         for _,plr in ipairs(Players:GetPlayers()) do
             if plr~=LP and plr.Character then
                 local tRoot=plr.Character:FindFirstChild("HumanoidRootPart"); local hum=plr.Character:FindFirstChildOfClass("Humanoid")
-                if tRoot and hum and hum.Health>0 then                    local dist=(tRoot.Position-root.Position).Magnitude
+                if tRoot and hum and hum.Health>0 then
+                    local dist=(tRoot.Position-root.Position).Magnitude
                     if dist<minDist then minDist=dist; closest=tRoot end
                 end
             end
@@ -2378,6 +2032,33 @@ local function Main()
         table.insert(Conns.anchor,char.DescendantAdded:Connect(function(part) if part:IsA("BasePart") then table.insert(Conns.anchor,onAnchorChanged(part)) end end))
     end
     stopMedusaCounter = function() for _,c2 in pairs(Conns.anchor) do pcall(function() c2:Disconnect() end) end; Conns.anchor={} end
+
+    startAntiRagdoll = function()
+        if Conns.antiRag then return end
+        local _wasRagdolled = false
+        Conns.antiRag = RunService.Heartbeat:Connect(function()
+            local char = LP.Character; if not char then return end
+            local hum2 = char:FindFirstChildOfClass("Humanoid"); local root = char:FindFirstChild("HumanoidRootPart")
+            if hum2 then
+                local st = hum2:GetState()
+                local isRag = st==Enum.HumanoidStateType.Physics or st==Enum.HumanoidStateType.Ragdoll or st==Enum.HumanoidStateType.FallingDown
+                if isRag then
+                    if not _wasRagdolled then _wasRagdolled = true end
+                    hum2:ChangeState(Enum.HumanoidStateType.Running)
+                    workspace.CurrentCamera.CameraSubject = hum2
+                    pcall(function() local pm=LP.PlayerScripts:FindFirstChild("PlayerModule"); if pm then require(pm:FindFirstChild("ControlModule")):Enable() end end)
+                    if root then root.Velocity=Vector3.zero; root.RotVelocity=Vector3.zero end
+                else
+                    if _wasRagdolled then _wasRagdolled = false end
+                end
+            end
+            for _,obj in ipairs(char:GetDescendants()) do if obj:IsA("Motor6D") and not obj.Enabled then obj.Enabled=true end end
+        end)
+    end
+    stopAntiRagdoll = function()
+        if Conns.antiRag then Conns.antiRag:Disconnect(); Conns.antiRag = nil end
+        State.countdownActive = false
+    end
 
     local _rtTimerActive = false
     local function getRagTimerLbl()
@@ -2689,6 +2370,38 @@ local function Main()
     _G._removeAccStop = function() _G._RemoveAccOn=false; if _G._RemoveAccConn then _G._RemoveAccConn:Disconnect(); _G._RemoveAccConn=nil end; _G._removedAccessories={} end
 
     -- ============================================================
+    -- CHARACTER SETUP
+    -- ============================================================
+    local function setupChar(char)
+        task.wait(0.1)
+        h=char:WaitForChild("Humanoid",5)
+        hrp=char:WaitForChild("HumanoidRootPart",5)
+        if not h or not hrp then return end
+        local head=char:FindFirstChild("Head")
+        if head then
+            local oldBB=head:FindFirstChild("GreenDuelsBB"); if oldBB then oldBB:Destroy() end
+            local bb=Instance.new("BillboardGui", head); bb.Name="GreenDuelsBB"; bb.Size=UDim2.new(0,180,0,100); bb.StudsOffset=Vector3.new(0,3,0); bb.AlwaysOnTop=true
+            local list=Instance.new("UIListLayout",bb); list.FillDirection=Enum.FillDirection.Vertical; list.SortOrder=Enum.SortOrder.LayoutOrder; list.VerticalAlignment=Enum.VerticalAlignment.Center; list.Padding=UDim.new(0,2)
+            local speedBillLbl=Instance.new("TextLabel",bb); speedBillLbl.Name="SpeedBillLbl"; speedBillLbl.Size=UDim2.new(1,0,0,24); speedBillLbl.BackgroundTransparency=1; speedBillLbl.Text="0.0"; speedBillLbl.TextColor3=Color3.fromRGB(38,240,125); speedBillLbl.Font=Enum.Font.GothamBlack; speedBillLbl.TextScaled=true; speedBillLbl.TextStrokeTransparency=0.1; speedBillLbl.TextStrokeColor3=Color3.new(0,0,0); speedBillLbl.LayoutOrder=1
+            local discordLbl=Instance.new("TextLabel",bb); discordLbl.Size=UDim2.new(1,0,0,22); discordLbl.BackgroundTransparency=1; discordLbl.Text="discord.gg/GreenDuels"; discordLbl.TextColor3=Color3.fromRGB(100,255,100); discordLbl.Font=Enum.Font.GothamBold; discordLbl.TextScaled=true; discordLbl.TextStrokeTransparency=0.1; discordLbl.TextStrokeColor3=Color3.new(0,0,0); discordLbl.LayoutOrder=2
+            local ragTimerLbl=Instance.new("TextLabel",bb); ragTimerLbl.Name="RagdollTimerLbl"; ragTimerLbl.Size=UDim2.new(1,0,0,30); ragTimerLbl.BackgroundTransparency=1; ragTimerLbl.Text=""; ragTimerLbl.TextColor3=Color3.fromRGB(255,60,60); ragTimerLbl.Font=Enum.Font.GothamBlack; ragTimerLbl.TextScaled=true; ragTimerLbl.TextStrokeTransparency=0.1; ragTimerLbl.TextStrokeColor3=Color3.new(0,0,0); ragTimerLbl.LayoutOrder=3
+        end
+        stopAntiRagdoll()
+        Steal.Data={}
+        _rtTimerActive = false
+        local _rtLbl = getRagTimerLbl and getRagTimerLbl()
+        if _rtLbl then _rtLbl.Text = "" end
+        task.spawn(function() startRagTimerDetection(char) end)
+        if State.antiRagdollEnabled then task.wait(0.5); startAntiRagdoll() end
+        if State.medusaCounterEnabled then setupMedusaCounter(char) end
+        if State.batAimbotToggled then stopBatAimbot(); task.wait(0.2); pcall(startBatAimbot) end
+        if State.batCounterEnabled then task.wait(0.3); startBatCounter() end
+        if State.tryardAnimEnabled then saveOriginalTryardAnims(char); applyTryardAnimPack(char) end
+    end
+    LP.CharacterAdded:Connect(setupChar)
+    if LP.Character then task.spawn(function() setupChar(LP.Character) end) end
+
+    -- ============================================================
     -- RUNTIME LOOPS
     -- ============================================================
     RunService.Stepped:Connect(function()
@@ -2744,15 +2457,6 @@ local function Main()
         elseif kc==Keys.drop then if not dropActive then pcall(runDrop) end
         elseif kc==Keys.lagger then toggleLaggerMode()
         elseif kc==Keys.tpDown then if runTPDown then task.spawn(runTPDown) end
-        elseif kc==Keys.tpBat then
-            toggleTPBat()  -- Toggle ON/OFF
-        elseif kc==Keys.reset then 
-            task.spawn(instaReset)
-            if stackBtnRefs.reset then
-                stackBtnRefs.reset.setOn(true)
-                task.wait(0.3)
-                stackBtnRefs.reset.setOn(false)
-            end
         elseif kc==Keys.aimbot then
             State.batAimbotToggled=not State.batAimbotToggled
             if State.batAimbotToggled then
@@ -2855,6 +2559,7 @@ local function Main()
     saveConfig = function()
         local success = false
         pcall(function()
+            -- Create backup of existing config before overwriting
             if _isfile(CONFIG_FILE) then
                 local oldRaw = _readfile(CONFIG_FILE)
                 if oldRaw and oldRaw ~= "" then
@@ -2889,8 +2594,6 @@ local function Main()
                 dropKey = Keys.drop and Keys.drop.Name or "H",
                 laggerKey = Keys.lagger and Keys.lagger.Name or "Unknown",
                 tpDownKey = Keys.tpDown and Keys.tpDown.Name or "Unknown",
-                tpBatKey = Keys.tpBat and Keys.tpBat.Name or "X",
-                resetKey = Keys.reset and Keys.reset.Name or "R",
                 aimbotKey = Keys.aimbot and Keys.aimbot.Name or "Unknown",
                 infJump = State.infJumpEnabled,
                 antiRagdoll = State.antiRagdollEnabled,
@@ -2914,10 +2617,10 @@ local function Main()
                 autoTPEnabled = State.autoTPEnabled,
                 autoTPHeight = State.autoTPHeight,
                 dropType = currentDropType,
-                tpBatToggled = tpBatToggled,
             }
             local encoded = HttpService:JSONEncode(cfg)
             _writefile(CONFIG_FILE, encoded)
+            -- Verify write succeeded
             local verify = _readfile(CONFIG_FILE)
             if verify == encoded then success = true end
         end)
@@ -2931,10 +2634,12 @@ local function Main()
     end
 
     loadConfig = function()
+        -- Try to load from main file
         local raw = nil
         if _isfile(CONFIG_FILE) then
             raw = _readfile(CONFIG_FILE)
         end
+        -- If main file missing or corrupt, try backup
         if not raw or raw == "" then
             if _isfile(CONFIG_BACKUP) then
                 raw = _readfile(CONFIG_BACKUP)
@@ -2950,6 +2655,7 @@ local function Main()
         
         local ok, decErr = pcall(HttpService.JSONDecode, HttpService, raw)
         if not ok or not decErr then
+            -- Corrupt config ג€“ delete it and use defaults
             pcall(function() _delfile(CONFIG_FILE) end)
             pcall(function() _delfile(CONFIG_BACKUP) end)
             warn("[Green Duels] Corrupt config deleted, using defaults")
@@ -2983,24 +2689,21 @@ local function Main()
             State.autoTPHeight = decErr.autoTPHeight
             if autoTPHeightBox then autoTPHeightBox.Text = tostring(State.autoTPHeight) end
         end
-        if decErr.tpBatToggled ~= nil then
-            tpBatToggled = decErr.tpBatToggled
-            if tpBatToggled then
-                local char = LP.Character
-                if char then
-                    tpBatHRP = char:FindFirstChild("HumanoidRootPart")
-                    tpBatH = char:FindFirstChildOfClass("Humanoid")
-                end
-                startTPBat()
-            end
-            if stackBtnRefs.tpBat then stackBtnRefs.tpBat.setOn(tpBatToggled) end
-        end
 
-        if decErr.dropType and (decErr.dropType == DROP_TYPES.JUMP) then
+        if decErr.dropType and (decErr.dropType == DROP_TYPES.STAND or decErr.dropType == DROP_TYPES.JUMP) then
             currentDropType = decErr.dropType
-            if jumpDropBtn then
-                jumpDropBtn.BackgroundColor3 = C.accent
-                jumpDropBtn.TextColor3 = Color3.fromRGB(0,20,8)
+            if standDropBtn and jumpDropBtn then
+                if currentDropType == DROP_TYPES.STAND then
+                    standDropBtn.BackgroundColor3 = C.accent
+                    standDropBtn.TextColor3 = Color3.fromRGB(0,20,8)
+                    jumpDropBtn.BackgroundColor3 = C.inputBg
+                    jumpDropBtn.TextColor3 = C.inputTxt
+                else
+                    jumpDropBtn.BackgroundColor3 = C.accent
+                    jumpDropBtn.TextColor3 = Color3.fromRGB(0,20,8)
+                    standDropBtn.BackgroundColor3 = C.inputBg
+                    standDropBtn.TextColor3 = C.inputTxt
+                end
             end
         end
 
@@ -3025,7 +2728,7 @@ local function Main()
         local keyMap = {
             speedKey="speed", autoLeftKey="autoLeft", autoRightKey="autoRight",
             guiHideKey="guiHide", dropKey="drop", laggerKey="lagger",
-            tpDownKey="tpDown", tpBatKey="tpBat", resetKey="reset", aimbotKey="aimbot"
+            tpDownKey="tpDown", aimbotKey="aimbot"
         }
         for cfgKey, stateKey in pairs(keyMap) do
             if decErr[cfgKey] then
@@ -3056,7 +2759,6 @@ local function Main()
         if stackBtnRefs.aimbot then stackBtnRefs.aimbot.setOn(State.batAimbotToggled) end
         if stackBtnRefs.autoLeft then stackBtnRefs.autoLeft.setOn(State.autoLeftEnabled) end
         if stackBtnRefs.autoRight then stackBtnRefs.autoRight.setOn(State.autoRightEnabled) end
-        if stackBtnRefs.tpBat then stackBtnRefs.tpBat.setOn(tpBatToggled) end
 
         if State.antiLagEnabled then enableAntiLag() else disableAntiLag() end
         if State.stretchedResEnabled then enableStretchRez() else disableStretchRez() end
@@ -3144,26 +2846,21 @@ local function Main()
         end
     end
     loadConfig()
+    -- DO NOT force AutoSteal to true here ג€“ keep saved value
     startAutoSteal()
-    print("[Green Duels] Ready! Jump Drop only (safe). BAT MODE (TOGGLE - stays ON until clicked again) & Blossom Reset added.")
+    print("[Green Duels] Ready. Stand drop = Brainrot fling (safe). Jump drop = ascend.")
 end
 
 -- ============================================================
--- SAFE MAIN EXECUTION - FIXED
+-- SAFE MAIN EXECUTION
 -- ============================================================
 if not _G.GreenDuelsV2_MainExecuted then
-    task.wait(0.5)  -- Wait for player to fully load
     if LP and LP:FindFirstChild("PlayerGui") then
         Main()
     else
         LP = LP or Players:WaitForChild("LocalPlayer")
-        local success, err = pcall(function()
-            LP:WaitForChild("PlayerGui")
-            Main()
-        end)
-        if not success then
-            warn("[Green Duels] Failed to execute Main:", err)
-        end
+        LP:WaitForChild("PlayerGui")
+        Main()
     end
 end
 
